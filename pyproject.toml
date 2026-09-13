@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scigantic-nci"
+version = "0.1.0"
+description = "Analysis-ready NCI cancer data in one import: per-project GDC tables (clinical, RNA-Seq, mutations, copy number, miRNA, RPPA, methylation) and per-collection Imaging Data Commons indexes with sample DICOM, read from public S3 or a mounted copy. No account, no download step, no BigQuery."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT-0" }
+authors = [{ name = "Scigantic" }]
+keywords = ["gdc", "tcga", "target", "cptac", "idc", "imaging-data-commons", "cancer", "genomics", "dicom", "nci", "parquet"]
+classifiers = [
+  "License :: OSI Approved :: MIT No Attribution License (MIT-0)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+dependencies = [
+  # Ceilings are the next major of each package's current PyPI release (checked 2026-09-13).
+  "pandas>=1.5,<4",
+  "pyarrow>=12,<27",
+  "numpy>=1.24,<3",
+  "boto3>=1.26,<2",
+]
+
+[project.optional-dependencies]
+# DICOM reading for the IDC sample series and on-demand pulls; everything else works without it.
+# pydicom decodes JPEG baseline (most IDC slides) and JPEG 2000 (tomosynthesis) only through a plugin.
+dicom = ["pydicom>=2.4,<4", "pylibjpeg>=2,<3", "pylibjpeg-libjpeg>=2,<3", "pylibjpeg-openjpeg>=2,<3"]
+dev = ["pytest>=7", "mypy>=1.10", "pandas-stubs", "pydicom>=2.4,<4", "pylibjpeg>=2,<3", "pylibjpeg-libjpeg>=2,<3", "pylibjpeg-openjpeg>=2,<3"]
+
+[project.urls]
+Homepage = "https://scigantic.com"
+Repository = "https://github.com/Scigantic/scigantic-nci"
+Issues = "https://github.com/Scigantic/scigantic-nci/issues"
+
+[project.scripts]
+scigantic-nci = "scigantic_nci.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+scigantic_nci = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*", "botocore", "botocore.*", "pyarrow", "pyarrow.*", "pydicom", "pydicom.*"]
+ignore_missing_imports = true
