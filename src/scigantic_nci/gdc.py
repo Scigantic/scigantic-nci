@@ -325,8 +325,9 @@ def clinical(project: str, primary_only: bool = True, root: str | None = None) -
 
     With ``primary_only`` (default) each case is joined to the single diagnosis row
     flagged ``diagnosis_is_primary_disease``; a case without such a row keeps NaN
-    diagnosis columns. With ``primary_only=False`` every diagnosis row is kept, so a
-    case with recurrence/metastasis rows appears more than once.
+    diagnosis columns but a non-null ``case_submitter_id`` (the case's submitter_id).
+    With ``primary_only=False`` every diagnosis row is kept, so a case with
+    recurrence/metastasis rows appears more than once.
 
     Column names that exist in both tables (state, submitter_id, updated_datetime)
     get the suffix ``_dx`` on the diagnosis side. Helper columns added at the end:
@@ -348,6 +349,11 @@ def clinical(project: str, primary_only: bool = True, root: str | None = None) -
             dx = dx[_is_true(dx["diagnosis_is_primary_disease"])]
         dx = dx.drop_duplicates("case_id", keep="first")
     df = cases.merge(dx, on="case_id", how="left", suffixes=("", "_dx"))
+    # case_submitter_id comes from the diagnoses side of the left join, so a case without a
+    # (primary) diagnosis row would carry NaN there; the case's own submitter_id is the same
+    # barcode, so take it from the cases table for every row.
+    if "submitter_id" in cases.columns:
+        df["case_submitter_id"] = df["submitter_id"].to_numpy()
 
     vital = df.get("demographic_vital_status", pd.Series(index=df.index, dtype=object))
     dead = vital.astype(str).str.lower().eq("dead")
@@ -599,11 +605,13 @@ def copy_number_workflows(project: str, kind: str = "gene_level", root: str | No
 def copy_number_samples(project: str, workflow: str | None = None, root: str | None = None) -> pd.DataFrame:
     """copy_number/gene_level_<workflow>_samples: matrix column -> case_submitter_id, file_id, ...
 
-    Note that ``sample_type`` here describes the first aliquot of the tumor/normal pair
-    the file was called on, not the matrix column: every column is the tumor aliquot
-    (in TCGA-BLCA all 392 ASCAT3 columns are ``-01A`` primary tumor barcodes, while
-    195 of the rows say Blood Derived Normal). Use the column barcode or
-    ``case_submitter_id`` rather than this sample_type.
+    ``sample_type``, ``sample_submitter_id`` and ``case_submitter_id`` describe the matrix
+    column's own aliquot, which is the tumor member of the tumor/normal pair the file was
+    called on (in TCGA-BLCA all 392 ASCAT3 columns are primary tumor barcodes and all 392
+    rows say Primary Tumor). For the paired workflows ``aliquot_submitter_id`` holds both
+    aliquots of the pair pipe-joined, in no fixed order. Tables built before 2026-09-13
+    reported the pair's first aliquot as ``sample_type`` instead; 82 AscatNGS columns in
+    CGCI-BLGSP and HCMI-CMDC that are themselves pipe-joined pairs still do.
     """
     store = _store(project, root)
     wf = _pick_workflow(_cn_workflows(store, "gene_level"), workflow, "gene-level copy number", project)

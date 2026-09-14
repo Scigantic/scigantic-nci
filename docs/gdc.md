@@ -225,14 +225,14 @@ ERBB2                               2.0                           2.0           
 
 112 of 392 BLCA tumors have homozygous CDKN2A deletion by ASCAT3. Values are total copy number (float, NaN when not called).
 
-A trap in the sibling samples table: `copy_number_samples` describes the tumor/normal pair the file was called on, and its `sample_type` is the pair's first aliquot, not the matrix column. Every column is the tumor aliquot (389 of 392 end in `-01A`, the other three are `-01B`/`-01C` vials) while the table says:
+The sibling samples table, `copy_number_samples`, maps each column to its own aliquot: `sample_type`, `sample_submitter_id` and `case_submitter_id` describe the column. Every column is the tumor aliquot (389 of 392 end in `-01A`, the other three are `-01B`/`-01C` vials), so the table says:
 
 ```
 >>> gdc.copy_number_samples("TCGA-BLCA")["sample_type"].value_counts().to_dict()
-{'Blood Derived Normal': 195, 'Primary Tumor': 186, 'Solid Tissue Normal': 11}
+{'Primary Tumor': 392}
 ```
 
-Use the column barcode or `case_submitter_id` from that table, not its `sample_type`.
+The paired workflows (ASCAT2, ASCAT3, AscatNGS) keep the tumor/normal pair the file was called on pipe-joined in `aliquot_submitter_id`, in no fixed order (in BLCA ASCAT3 the tumor is first in 186 rows and second in 206), the same convention as the MAF. Tables built before 2026-09-13 took `sample_type` from the first aliquot of that pair, which is why 195 BLCA rows used to say Blood Derived Normal. The exception that remains: 82 AscatNGS columns in CGCI-BLGSP and HCMI-CMDC are themselves pipe-joined pairs, and for those rows `sample_type` is the pair's first aliquot.
 
 Long segment tables come from `segments(project, kind, workflow)`, with `kind` in `"segments"` (dnacopy 588,674 rows or gatk4_cnv 2,386,633 rows for BLCA), `"masked"` (266,389) and `"allele_specific"`:
 

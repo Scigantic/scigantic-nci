@@ -84,6 +84,19 @@ def test_clinical_one_row_per_case(gdc_root: str) -> None:
     assert c["stage"].value_counts().to_dict() == {"Stage III": 141, "Stage IV": 136, "Stage II": 131, "Stage I": 1}
 
 
+@pytest.mark.parametrize("project,n_cases,n_without_primary_dx", [("TCGA-OV", 608, 21), ("TCGA-LUAD", 585, 63)])
+def test_clinical_case_submitter_id_from_cases(gdc_root: str, project: str, n_cases: int, n_without_primary_dx: int) -> None:
+    c = gdc.clinical(project)
+    assert len(c) == n_cases == len(pd.read_parquet(f"{gdc_root}/{project}/clinical/cases.parquet"))
+    # cases with no primary diagnosis row still get the case's own barcode, not NaN from the diagnoses side
+    assert c["case_submitter_id"].notna().all() and c["case_submitter_id"].is_unique
+    assert c["case_submitter_id"].equals(c["submitter_id"])
+    assert int(c["submitter_id_dx"].isna().sum()) == n_without_primary_dx
+    # the same holds when every diagnosis row is kept
+    every = gdc.clinical(project, primary_only=False)
+    assert every["case_submitter_id"].notna().all() and every["case_id"].nunique() == n_cases
+
+
 def test_clinical_all_diagnoses(gdc_root: str) -> None:
     c = gdc.clinical(BLCA, primary_only=False)
     assert len(c) == 1014 and c["case_id"].nunique() == 412
@@ -216,12 +229,21 @@ def test_copy_number_matrix(gdc_root: str) -> None:
         gdc.copy_number(BLCA, genes=["NOPE"])
 
 
-def test_copy_number_samples_sample_type_is_not_the_column(gdc_root: str) -> None:
+def test_copy_number_samples_sample_type_is_the_column_aliquot(gdc_root: str) -> None:
     s = gdc.copy_number_samples(BLCA)
     assert len(s) == 392 and s.attrs["workflow"] == "ascat3"
-    # every matrix column is the tumor aliquot (-01A) although sample_type often says normal
+    # every matrix column is the tumor aliquot (-01A/-01B/-01C) and sample_type describes that column
     assert s["column"].str[13:15].eq("01").all()
-    assert s["sample_type"].value_counts().to_dict() == {"Blood Derived Normal": 195, "Primary Tumor": 186, "Solid Tissue Normal": 11}
+    assert s["sample_submitter_id"].eq(s["column"].str[:16]).all()
+    assert s["sample_type"].value_counts().to_dict() == {"Primary Tumor": 392}
+    # the tumor/normal pair the file was called on stays pipe-joined in aliquot_submitter_id, in no fixed order
+    pair = s["aliquot_submitter_id"].str.split("|")
+    assert pair.str.len().eq(2).all()
+    assert all(c in p for c, p in zip(s["column"], pair))
+    assert (pair.str[0] == s["column"]).sum() == 186 and (pair.str[1] == s["column"]).sum() == 206
+    # and it agrees with the clinical aliquots table for the column's aliquot
+    al = gdc.aliquots(BLCA).drop_duplicates("aliquot_submitter_id").set_index("aliquot_submitter_id")["sample_type"]
+    assert s["sample_type"].eq(s["column"].map(al)).all()
 
 
 def test_segments(gdc_root: str) -> None:
