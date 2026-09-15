@@ -16,11 +16,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Cache the fixture mirror
+        uses: actions/cache@v4
+        with:
+          path: tests/fixtures/mirror
+          key: nci-fixture-mirror-${{ hashFiles('tests/fixtures/manifest.txt') }}
+      - name: Fetch the fixture mirror from the public buckets
+        run: python tests/fixtures/fetch_mirror.py
       - name: Install + test
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-          pytest -q
+          pytest -q -rs
 
   typecheck:
     runs-on: ubuntu-latest
