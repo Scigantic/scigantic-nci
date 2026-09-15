@@ -121,6 +121,7 @@ scigantic-gdc-open TCGA-LIHC/BUILD_REPORT.json 3488
 scigantic-gdc-open TCGA-LIHC/clinical/cases.parquet 52315
 scigantic-gdc-open TCGA-LUAD/BUILD_REPORT.json 3644
 scigantic-gdc-open TCGA-LUAD/clinical/cases.parquet 69249
+scigantic-gdc-open TCGA-LUAD/clinical/diagnoses.parquet 78000
 scigantic-gdc-open TCGA-LUSC/BUILD_REPORT.json 3648
 scigantic-gdc-open TCGA-LUSC/clinical/cases.parquet 64069
 scigantic-gdc-open TCGA-MESO/BUILD_REPORT.json 3561
