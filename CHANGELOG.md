@@ -6,6 +6,7 @@
 - The test that pinned the old counts now asserts the corrected invariant.
 - `gdc.clinical` now takes `case_submitter_id` from the cases table for every row. It used to come from the diagnoses side of the left join, so a case with no primary diagnosis row had `case_submitter_id` NaN although its `case_id` and `submitter_id` were filled (TCGA-OV 21 of 608 rows, TCGA-LUAD 63 of 585, TCGA-BRCA 2 of 1098, TCGA-BLCA 1 of 412, CPTAC-3 24 of 1866; 1,497 rows across the 57 projects). `clinical()` is now one row per case with a non-null, unique `case_submitter_id`; `os_time_days`, `os_event`, `age_at_diagnosis_years` and `stage` are unchanged.
 - CI now runs the whole suite. `tests/fixtures/manifest.txt` lists every object the tests read (717 objects, 254 MB); `tests/fixtures/fetch_mirror.py` fetches them from the public buckets into a cached `tests/fixtures/mirror`, and `tests/conftest.py` falls back to that copy. Before this, CI skipped 65 of 66 tests because the fixtures existed only on the machine that built the buckets.
+- README: the IDC licensing paragraph now states that CC BY-NC series may not be used commercially and that `license_short_name` is the authoritative per-series license.
 - The GDC mirror is complete: the remaining 21 projects finished building later on 2026-09-13, so all 57 open-access projects of GDC Data Release 46.0 are live and `gdc.projects()` returns 57 rows. The README bullet that said 36 of 57 were built is replaced.
 
 ## 0.1.0 (2026-09-13)
