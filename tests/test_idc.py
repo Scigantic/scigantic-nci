@@ -177,6 +177,27 @@ def test_samples_and_sample_files() -> None:
         idc.read_sample("b_mode_and_ceus_liver")
 
 
+def test_samples_license_short_name() -> None:
+    lihc = idc.samples("tcga_lihc")
+    cols = list(lihc.columns)
+    assert cols[cols.index("license") + 1] == "license_short_name"
+    assert lihc["license_short_name"].tolist() == ["CC BY 3.0"] * 3
+    assert lihc["license_short_name"].equals(lihc["license"].rename("license_short_name"))
+    # a collection that mixes CC BY 4.0 and CC BY-NC 3.0 series: the mirror never copies a
+    # CC BY-NC series, so its one sample is a CC BY 4.0 SEG and its CT/RTSTRUCT are not sampled
+    nsclc = idc.samples("nsclc_radiomics")
+    assert nsclc["modality"].tolist() == ["SEG"]
+    assert nsclc["license_short_name"].tolist() == ["CC BY 4.0"]
+    assert set(idc.report("nsclc_radiomics")["licenses"]) == {"CC BY 4.0", "CC BY-NC 3.0"}
+    ser = idc.series("nsclc_radiomics", columns=["SeriesInstanceUID", "license_short_name"])
+    lic = ser.set_index("SeriesInstanceUID")["license_short_name"]
+    assert nsclc["SeriesInstanceUID"].map(lic).tolist() == nsclc["license_short_name"].tolist()
+    assert "license_short_name" in idc.samples("b_mode_and_ceus_liver").columns
+    # an all-CC BY-NC collection keeps its index tables and has no sample at all
+    assert idc.samples("phantom_fda").empty
+    assert set(idc.report("phantom_fda")["licenses"]) == {"CC BY-NC 3.0"}
+
+
 def test_read_sample_ct_volume() -> None:
     pytest.importorskip("pydicom")
     v = idc.read_sample("tcga_lihc", "CT")
@@ -240,18 +261,16 @@ def test_htan_ohsu_fluorescence_no_channel_axis() -> None:
     assert round(sl.levels[0].um_per_px or 0, 3) == 8.067
 
 
-def test_dbt_multiframe_instance() -> None:
+def test_multiframe_instance() -> None:
+    # remind's US sample is one instance holding a 39-frame cine loop; read_sample takes the middle frame
     pydicom = pytest.importorskip("pydicom")
-    files = idc.sample_files("breast_cancer_screening_dbt", "MG")
+    files = idc.sample_files("remind", "US")
     assert len(files) == 1
-    ds = pydicom.dcmread(os.path.join(_mirror(), "breast_cancer_screening_dbt", files[0]))
-    assert int(ds.NumberOfFrames) == 21 and (ds.Rows, ds.Columns) == (2457, 1996)
-    try:
-        v = idc.read_sample("breast_cancer_screening_dbt")
-    except NciError as e:  # JPEG 2000 frames need a decoder plugin
-        assert "pylibjpeg" in str(e)
-        pytest.skip("no JPEG 2000 decoder plugin installed")
-    assert isinstance(v, idc.Volume) and v.shape == (1, 2457, 1996)
+    ds = pydicom.dcmread(os.path.join(_mirror(), "remind", files[0]))
+    assert int(ds.NumberOfFrames) == 39 and (ds.Rows, ds.Columns) == (599, 725)
+    v = idc.read_sample("remind", "US")
+    assert isinstance(v, idc.Volume) and v.shape == (1, 599, 725)
+    assert np.array_equal(v.array[0], ds.pixel_array[19].astype(v.array.dtype))
 
 
 def _mirror() -> str:

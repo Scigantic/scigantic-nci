@@ -1,8 +1,9 @@
 """The ``scigantic-nci`` console script.
 
 Thin argparse wrappers over :mod:`scigantic_nci.gdc` and :mod:`scigantic_nci.idc`.
-Tables are written as CSV to stdout, or to ``--out`` when given. Errors from the
-library (``NciError``, ``ValueError``) are printed to stderr and give exit code 2.
+Tables are written as CSV to stdout, or to ``--out`` when given; ``build-index`` writes
+the bucket's catalog index as parquet. Errors from the library (``NciError``,
+``ValueError``) are printed to stderr and give exit code 2.
 
 An id is treated as an IDC collection when it contains a lowercase letter
 (``tcga_lihc``, ``4d_lung``) and as a GDC project otherwise (``TCGA-LIHC``,
@@ -17,7 +18,7 @@ from typing import Any, Sequence
 import pandas as pd
 
 from . import gdc, idc
-from ._store import NciError
+from ._store import GDC_BUCKET, IDC_BUCKET, INDEX_FILES, NciError, write_index
 from ._version import __version__
 
 
@@ -60,6 +61,13 @@ def _cmd_projects(a: argparse.Namespace) -> None:
 
 def _cmd_collections(a: argparse.Namespace) -> None:
     _write(idc.collections(), a.out, index=False)
+
+
+def _cmd_build_index(a: argparse.Namespace) -> None:
+    """Write PROJECTS.parquet or COLLECTIONS.parquet, built from every BUILD_REPORT.json (never from an existing index)."""
+    df = gdc._build_projects(use_index=False) if a.mirror == "gdc" else idc._build_collections(use_index=False)
+    size = write_index(df, a.out)
+    sys.stdout.write(f"{a.out}: {len(df)} rows, {size} bytes\n")
 
 
 def _cmd_tables(a: argparse.Namespace) -> None:
@@ -161,6 +169,18 @@ def _parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("collections", help="one row per mirrored IDC collection")
     out(sp)
     sp.set_defaults(func=_cmd_collections)
+
+    sp = sub.add_parser(
+        "build-index",
+        help="write the catalog index file (PROJECTS.parquet or COLLECTIONS.parquet) for a mirror bucket",
+        description="Build the projects() (gdc) or collections() (idc) frame from every project's or "
+        "collection's BUILD_REPORT.json, ignoring any existing index, and write it as parquet. Upload the "
+        f"result to s3://{GDC_BUCKET}/{INDEX_FILES[GDC_BUCKET]} or s3://{IDC_BUCKET}/{INDEX_FILES[IDC_BUCKET]} "
+        "after every rebuild.",
+    )
+    sp.add_argument("mirror", choices=["gdc", "idc"])
+    sp.add_argument("--out", required=True, metavar="PATH", help="parquet file to write")
+    sp.set_defaults(func=_cmd_build_index)
 
     sp = sub.add_parser("tables", help="tables of a GDC project or IDC collection with rows, columns, bytes")
     sp.add_argument("id", metavar="PROJECT|collection")

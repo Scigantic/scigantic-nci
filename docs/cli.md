@@ -1,6 +1,6 @@
 # scigantic-nci: the console script
 
-`scigantic-nci` wraps the functions in `scigantic_nci.gdc` and `scigantic_nci.idc`. Tables are written as CSV to stdout, or to `--out FILE.csv`; `readme`, `sample`, `viewer-url` and `pull-series` print text. The global `--root DIR` is passed as the `root=` argument (a local directory holding one project's or collection's files); without it the resolver uses `$SCIGANTIC_NCI_ROOT`, the notebook mount, or the public bucket. An id containing a lowercase letter (`tcga_lihc`) is an IDC collection, anything else (`TCGA-LIHC`) a GDC project.
+`scigantic-nci` wraps the functions in `scigantic_nci.gdc` and `scigantic_nci.idc`. Tables are written as CSV to stdout, or to `--out FILE.csv`; `readme`, `sample`, `viewer-url` and `pull-series` print text, and `build-index` writes a parquet file. The global `--root DIR` is passed as the `root=` argument (a local directory holding one project's or collection's files); without it the resolver uses `$SCIGANTIC_NCI_ROOT`, the notebook mount, or the public bucket. An id containing a lowercase letter (`tcga_lihc`) is an IDC collection, anything else (`TCGA-LIHC`) a GDC project.
 
 Errors raised by the library (`NciError`, `NotMirroredError`, `ValueError`) are printed to stderr prefixed with `scigantic-nci:` and the exit code is 2.
 
@@ -16,6 +16,8 @@ positional arguments:
   command
     projects            one row per mirrored GDC project
     collections         one row per mirrored IDC collection
+    build-index         write the catalog index file (PROJECTS.parquet or
+                        COLLECTIONS.parquet) for a mirror bucket
     tables              tables of a GDC project or IDC collection with rows,
                         columns, bytes
     readme              print the README.md of a project or collection
@@ -98,6 +100,17 @@ $ echo $?
 2
 ```
 
+## Catalog index
+
+`build-index gdc|idc --out PATH` builds the `projects()` or `collections()` frame from every project's or collection's `BUILD_REPORT.json`, ignoring any existing index, and writes it as parquet. It is for the bucket owners: after any rebuild the result is uploaded to `s3://scigantic-gdc-open/PROJECTS.parquet` or `s3://scigantic-idc-open/COLLECTIONS.parquet`. Run on 2026-09-15 against the public buckets (`SCIGANTIC_NCI_ROOT` unset, no mount):
+
+```
+$ scigantic-nci build-index gdc --out PROJECTS.parquet
+PROJECTS.parquet: 57 rows, 5772 bytes
+$ scigantic-nci build-index idc --out COLLECTIONS.parquet
+COLLECTIONS.parquet: 176 rows, 15648 bytes
+```
+
 ## IDC
 
 ```
@@ -147,6 +160,7 @@ StudyInstanceUID: 1.3.6.1.4.1.14519.5.2.1.3344.4008.3251991161621700452677058525
 SeriesInstanceUID: 1.3.6.1.4.1.14519.5.2.1.3344.4008.1590978269182606855431778873.8
 series_aws_url: s3://idc-open-data/54e10b05-fd18-4886-81c9-765faeafb7a4/*
 license: CC BY 3.0
+license_short_name: CC BY 3.0
 source_DOI: 10.7937/k9/tcia.2016.immqw8uq
 folder: sample/CT_1.3.6.1.4.1.14519.5.2.1.3344.4008.1590978269182606855431778873.8
 dcm_files: 36

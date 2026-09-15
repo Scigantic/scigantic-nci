@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import gzip
 import os
+import time
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from scigantic_nci import gdc
-from scigantic_nci._store import GDC_BUCKET, NciError, NotMirroredError, Store
+from scigantic_nci._store import GDC_BUCKET, NciError, NotMirroredError, Store, list_keys, read_index
 
 BLCA = "TCGA-BLCA"
 
@@ -354,3 +355,29 @@ def test_live_s3_chol(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(gdc.clinical("TCGA-CHOL")) == 51
     s = gdc.expression_samples("TCGA-CHOL")
     assert s["sample_type"].value_counts().to_dict() == {"Primary Tumor": 35, "Solid Tissue Normal": 9}
+
+
+@pytest.mark.network
+def test_live_projects_catalog(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    """projects() cold from the bucket; the same frame whether or not PROJECTS.parquet is there yet."""
+    monkeypatch.delenv("SCIGANTIC_NCI_ROOT", raising=False)
+    monkeypatch.setenv("SCIGANTIC_MOUNT_PATH", "/nonexistent-mount")
+    gdc._project_ids.cache_clear()
+    gdc._projects_frame.cache_clear()
+    try:
+        t0 = time.perf_counter()
+        p = gdc.projects()
+        elapsed = time.perf_counter() - t0
+    finally:
+        gdc._project_ids.cache_clear()
+        gdc._projects_frame.cache_clear()
+    index = read_index(GDC_BUCKET, gdc._PROJECT_COLUMNS, "project")
+    with capsys.disabled():
+        print(f"\ngdc.projects() from S3: {elapsed:.2f} s, {len(p)} rows, bucket index rows: {len(index)}")
+    assert list(p.columns) == list(gdc._PROJECT_COLUMNS)
+    assert p["project"].tolist() == list_keys(GDC_BUCKET)
+    assert len(p) >= 57
+    row = p.set_index("project").loc[BLCA]
+    assert row["cases"] == 412
+    assert row["n_tables"] == 35
+    assert row["source_files_in_project"] == 10603

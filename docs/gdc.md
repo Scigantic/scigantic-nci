@@ -21,7 +21,7 @@ TARGET-ALL-P1     24        13          13    50731894
     TCGA-CHOL     51        34         698   730495995
 ```
 
-`projects()` reads each project's `BUILD_REPORT.json` plus the `case_id` column of `clinical/cases` and caches the result for the process. `report(project)` returns the raw build report, `readme(project)` the README text, and `tables(project)` the per-table sizes:
+`projects()` lists the mirrored projects, reads their rows from the bucket's `PROJECTS.parquet` index (written from each project's `BUILD_REPORT.json` plus the row count of `clinical/cases`), builds any row the index lacks from those two files, and caches the result for the process. `report(project)` returns the raw build report, `readme(project)` the README text, and `tables(project)` the per-table sizes:
 
 ```python
 gdc.tables("TCGA-BLCA").head(8)
@@ -232,7 +232,7 @@ The sibling samples table, `copy_number_samples`, maps each column to its own al
 {'Primary Tumor': 392}
 ```
 
-The paired workflows (ASCAT2, ASCAT3, AscatNGS) keep the tumor/normal pair the file was called on pipe-joined in `aliquot_submitter_id`, in no fixed order (in BLCA ASCAT3 the tumor is first in 186 rows and second in 206), the same convention as the MAF. Tables built before 2026-09-13 took `sample_type` from the first aliquot of that pair, which is why 195 BLCA rows used to say Blood Derived Normal. The exception that remains: 82 AscatNGS columns in CGCI-BLGSP and HCMI-CMDC are themselves pipe-joined pairs, and for those rows `sample_type` is the pair's first aliquot.
+The paired workflows (ASCAT2, ASCAT3, AscatNGS) keep the tumor/normal pair the file was called on pipe-joined in `aliquot_submitter_id`, in no fixed order (in BLCA ASCAT3 the tumor is first in 186 rows and second in 206), the same convention as the MAF. Tables built before 2026-09-13 took `sample_type` from the first aliquot of that pair, which is why 195 BLCA rows used to say Blood Derived Normal. Every matrix column is a single tumor aliquot.
 
 Long segment tables come from `segments(project, kind, workflow)`, with `kind` in `"segments"` (dnacopy 588,674 rows or gatk4_cnv 2,386,633 rows for BLCA), `"masked"` (266,389) and `"allele_specific"`:
 

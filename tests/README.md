@@ -6,7 +6,7 @@ build-time mirrors when they exist on the machine that built the buckets, then
 `tests/fixtures/mirror`.
 
 `tests/fixtures/manifest.txt` lists every object the suite reads (bucket, key, bytes;
-about 250 MB across 716 objects). Fetch them once and run the tests:
+about 270 MB across 718 objects). Fetch them once and run the tests:
 
 ```
 python tests/fixtures/fetch_mirror.py

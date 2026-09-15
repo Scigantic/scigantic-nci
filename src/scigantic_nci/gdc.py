@@ -23,7 +23,7 @@ from typing import Any, Iterable, Sequence
 
 import pandas as pd
 
-from ._store import GDC_BUCKET, NciError, NotMirroredError, Store, list_keys, resolve
+from ._store import GDC_BUCKET, NciError, NotMirroredError, Store, catalog_rows, list_keys, resolve
 
 __all__ = [
     "NON_SILENT",
@@ -203,29 +203,45 @@ def _as_list(x: str | Iterable[str] | None) -> list[str] | None:
 # ------------------------------------------------------------------ project level
 
 
+_PROJECT_COLUMNS: tuple[str, ...] = (
+    "project",
+    "gdc_data_release",
+    "built_at",
+    "n_tables",
+    "cases",
+    "source_files_in_project",
+    "files_read",
+    "bytes_read",
+)
+
+
+def _project_row(pid: str) -> dict[str, Any]:
+    store = resolve(GDC_BUCKET, pid)
+    rep = store.read_json("BUILD_REPORT.json")
+    n_cases: int | None = None
+    if store.exists("clinical/cases.parquet"):
+        n_cases = len(store.read_parquet("clinical/cases.parquet", columns=["case_id"]))
+    return {
+        "project": rep.get("project", pid),
+        "gdc_data_release": rep.get("gdc_data_release"),
+        "built_at": rep.get("built_at"),
+        "n_tables": len(rep.get("tables", {})),
+        "cases": n_cases,
+        "source_files_in_project": rep.get("source_files_in_project"),
+        "files_read": rep.get("files_read"),
+        "bytes_read": rep.get("bytes_read"),
+    }
+
+
+def _build_projects(use_index: bool = True) -> pd.DataFrame:
+    """The projects() frame, uncached. ``use_index=False`` ignores PROJECTS.parquet (to write it)."""
+    rows = catalog_rows(GDC_BUCKET, _known_projects(), _project_row, _PROJECT_COLUMNS, "project", use_index=use_index)
+    return pd.DataFrame(rows, columns=list(_PROJECT_COLUMNS))
+
+
 @lru_cache(maxsize=8)
 def _projects_frame(env_root: str | None) -> pd.DataFrame:
-    rows: list[dict[str, Any]] = []
-    for pid in _known_projects():
-        store = resolve(GDC_BUCKET, pid)
-        rep = store.read_json("BUILD_REPORT.json")
-        n_cases: int | None = None
-        if store.exists("clinical/cases.parquet"):
-            n_cases = len(store.read_parquet("clinical/cases.parquet", columns=["case_id"]))
-        rows.append(
-            {
-                "project": rep.get("project", pid),
-                "gdc_data_release": rep.get("gdc_data_release"),
-                "built_at": rep.get("built_at"),
-                "n_tables": len(rep.get("tables", {})),
-                "cases": n_cases,
-                "source_files_in_project": rep.get("source_files_in_project"),
-                "files_read": rep.get("files_read"),
-                "bytes_read": rep.get("bytes_read"),
-            }
-        )
-    cols = ["project", "gdc_data_release", "built_at", "n_tables", "cases", "source_files_in_project", "files_read", "bytes_read"]
-    return pd.DataFrame(rows, columns=cols)
+    return _build_projects()
 
 
 def projects() -> pd.DataFrame:
@@ -234,6 +250,11 @@ def projects() -> pd.DataFrame:
     Cached for the life of the process (per ``$SCIGANTIC_NCI_ROOT`` value).
     Columns: project, gdc_data_release, built_at, n_tables, cases,
     source_files_in_project, files_read, bytes_read.
+
+    The ids come from listing the bucket (and any local copy). Rows are read from the
+    bucket's ``PROJECTS.parquet`` index when it has them and built from the project's own
+    files otherwise (16 at a time). A project rebuilt after the index was written keeps its
+    previous row (``built_at`` and counts) until the index is regenerated.
     """
     return _projects_frame(os.environ.get("SCIGANTIC_NCI_ROOT")).copy()
 
@@ -610,8 +631,8 @@ def copy_number_samples(project: str, workflow: str | None = None, root: str | N
     called on (in TCGA-BLCA all 392 ASCAT3 columns are primary tumor barcodes and all 392
     rows say Primary Tumor). For the paired workflows ``aliquot_submitter_id`` holds both
     aliquots of the pair pipe-joined, in no fixed order. Tables built before 2026-09-13
-    reported the pair's first aliquot as ``sample_type`` instead; 82 AscatNGS columns in
-    CGCI-BLGSP and HCMI-CMDC that are themselves pipe-joined pairs still do.
+    reported the pair's first aliquot as ``sample_type`` instead. Every matrix column is a
+    single tumor aliquot.
     """
     store = _store(project, root)
     wf = _pick_workflow(_cn_workflows(store, "gene_level"), workflow, "gene-level copy number", project)

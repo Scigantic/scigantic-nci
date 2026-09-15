@@ -4,12 +4,15 @@ The suite reads a local copy of the two mirror buckets. The root is chosen in th
 
 1. ``$SCIGANTIC_NCI_TEST_ROOT``: a directory holding ``gdc_mirror/`` and ``idc_mirror/``
    (and optionally ``gdcbuild_meth/``),
-2. the full scratchpad mirrors used while building the buckets, when present on this machine,
-3. ``tests/fixtures/mirror``, the subset every test reads, fetched from the public buckets by
-   ``python tests/fixtures/fetch_mirror.py`` (this is what CI uses).
+2. ``tests/fixtures/mirror`` when it has been fetched: the subset every test reads, downloaded
+   from the live buckets by ``python tests/fixtures/fetch_mirror.py`` (this is what CI uses),
+3. the full build-time mirrors, when present on the machine that built the buckets. They are
+   not updated when the bucket owners rebuild an object, so they can lag the live buckets.
 
-Set ``SCIGANTIC_NCI_TEST_FIXTURES_ONLY=1`` to force option 3 and reproduce a CI run locally.
-Tests skip when no root has the data they need. Live S3 tests are marked ``network``.
+Set ``SCIGANTIC_NCI_TEST_FIXTURES_ONLY=1`` to force option 2. The methylation tests need a
+TCGA-CHOL build with ``methylation/``, which is not in the public bucket; they use the one
+under the chosen root, else the build-time copy, else skip. Tests skip when no root has the
+data they need. Live S3 tests are marked ``network``.
 """
 from __future__ import annotations
 
@@ -28,16 +31,26 @@ def _pick_root() -> str:
         return env
     if os.environ.get("SCIGANTIC_NCI_TEST_FIXTURES_ONLY"):
         return _FIXTURES
+    if os.path.exists(os.path.join(_FIXTURES, "idc_mirror", "tcga_lihc", "BUILD_REPORT.json")):
+        return _FIXTURES
     if os.path.isdir(os.path.join(_SCRATCH, "gdc_mirror")):
         return _SCRATCH
     return _FIXTURES
 
 
+def _pick_methylation_root(root: str) -> str:
+    # A TCGA-CHOL build that includes methylation/ (the public mirror was built without it).
+    for base in (root, _SCRATCH):
+        cand = os.path.join(base, "gdcbuild_meth", "TCGA-CHOL")
+        if os.path.isdir(cand) and (base == root or not os.environ.get("SCIGANTIC_NCI_TEST_FIXTURES_ONLY")):
+            return cand
+    return os.path.join(root, "gdcbuild_meth", "TCGA-CHOL")
+
+
 TEST_ROOT = _pick_root()
 IDC_MIRROR = os.path.join(TEST_ROOT, "idc_mirror")
 GDC_MIRROR = os.path.join(TEST_ROOT, "gdc_mirror")
-# A TCGA-CHOL build that includes methylation/ (the public mirror was built without it).
-GDC_METHYLATION_ROOT = os.path.join(TEST_ROOT, "gdcbuild_meth", "TCGA-CHOL")
+GDC_METHYLATION_ROOT = _pick_methylation_root(TEST_ROOT)
 
 
 def pytest_configure(config: pytest.Config) -> None:

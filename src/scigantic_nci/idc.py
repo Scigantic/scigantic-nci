@@ -35,7 +35,7 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
-from ._store import IDC_BUCKET, NciError, NotMirroredError, Store, list_keys, resolve
+from ._store import IDC_BUCKET, NciError, NotMirroredError, Store, catalog_rows, list_keys, resolve
 
 RAW_BUCKET_DEFAULT = "idc-open-data"
 VIEWER_BASE = "https://viewer.imaging.datacommons.cancer.gov/viewer"
@@ -135,6 +135,21 @@ def tables(collection: str, root: str | None = None) -> pd.DataFrame:
     return df.sort_values("table").reset_index(drop=True)
 
 
+_COLLECTION_COLUMNS: tuple[str, ...] = (
+    "collection_id",
+    "collection_name",
+    "n_patients",
+    "n_studies",
+    "n_series",
+    "total_GB",
+    "modalities",
+    "licenses",
+    "clinical_tables",
+    "idc_data_version",
+    "built_at",
+)
+
+
 def _report_row(cid: str) -> dict[str, Any]:
     d = report(cid)
     return {
@@ -152,23 +167,31 @@ def _report_row(cid: str) -> dict[str, Any]:
     }
 
 
+def _build_collections(use_index: bool = True) -> pd.DataFrame:
+    """The collections() frame, uncached. ``use_index=False`` ignores COLLECTIONS.parquet (to write it)."""
+    rows = catalog_rows(IDC_BUCKET, collection_ids(), _report_row, _COLLECTION_COLUMNS, "collection_id", use_index=use_index)
+    df = pd.DataFrame(rows, columns=list(_COLLECTION_COLUMNS))
+    return df.sort_values("collection_id").reset_index(drop=True)
+
+
 _COLLECTIONS_CACHE: dict[str, pd.DataFrame] = {}
 
 
 def collections() -> pd.DataFrame:
-    """One row per mirrored collection, from each BUILD_REPORT.json (cached per process).
+    """One row per mirrored collection (cached per process).
 
     Columns: collection_id, collection_name, n_patients, n_studies, n_series, total_GB,
     modalities (comma-joined, most series first), licenses, clinical_tables (count),
-    idc_data_version, built_at. Reads 176 small JSON files with 16 threads.
+    idc_data_version, built_at. The ids come from listing the bucket or the local mirror.
+    Rows are read from the bucket's ``COLLECTIONS.parquet`` index when it has them and
+    built from each collection's BUILD_REPORT.json otherwise (16 threads). A collection
+    rebuilt after the index was written keeps its previous row until the index is
+    regenerated.
     """
     key = _local_root() or ""
     cached = _COLLECTIONS_CACHE.get(key)
     if cached is None:
-        ids = collection_ids()
-        with ThreadPoolExecutor(max_workers=16) as pool:
-            rows = list(pool.map(_report_row, ids))
-        cached = pd.DataFrame(rows).sort_values("collection_id").reset_index(drop=True)
+        cached = _build_collections()
         _COLLECTIONS_CACHE[key] = cached
     return cached.copy()
 
@@ -310,7 +333,10 @@ def samples(collection: str, root: str | None = None) -> pd.DataFrame:
 
     Columns: modality, kind (series or sm_levels), files, bytes, instanceCount_full_series,
     series_size_MB_full, PatientID, StudyInstanceUID, SeriesInstanceUID, series_aws_url,
-    license, source_DOI, folder. Empty for the one collection without samples.
+    license, license_short_name, source_DOI, folder. Empty for the one collection without
+    samples. ``license_short_name`` is the sample series' license from the build report
+    (``CC BY 4.0``, ``CC BY-NC 3.0``, ...), the same value series.parquet has for that
+    series under the same column name; ``license`` is kept and holds the same string.
     """
     rep = _store(collection, root).read_json("BUILD_REPORT.json")
     cols = [
@@ -325,10 +351,11 @@ def samples(collection: str, root: str | None = None) -> pd.DataFrame:
         "SeriesInstanceUID",
         "series_aws_url",
         "license",
+        "license_short_name",
         "source_DOI",
         "folder",
     ]
-    rows = [{c: s.get(c) for c in cols} for s in rep.get("samples", [])]
+    rows = [{**{c: s.get(c) for c in cols}, "license_short_name": s.get("license_short_name", s.get("license"))} for s in rep.get("samples", [])]
     return pd.DataFrame(rows, columns=cols)
 
 

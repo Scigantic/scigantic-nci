@@ -32,12 +32,13 @@ import scigantic_nci as nci
 73 96940.4
 ```
 
-`collections()` reads the 176 `BUILD_REPORT.json` files (16 threads) once per process and
-returns a copy of the cached frame. The `modalities` string lists a collection's modalities
-by series count, most first; `clinical_tables` is the number of clinical tables (59
-collections have at least one). `collection_ids()` gives just the sorted ids, and
-`report(collection)` / `readme(collection)` return one collection's BUILD_REPORT dict and
-README text.
+`collections()` reads the bucket's `COLLECTIONS.parquet` index (written from the 176
+`BUILD_REPORT.json` files; a collection the index lacks is read from its own report, 16
+threads) once per process and returns a copy of the cached frame. The `modalities` string
+lists a collection's modalities by series count, most first; `clinical_tables` is the
+number of clinical tables (59 collections have at least one). `collection_ids()` gives
+just the sorted ids, and `report(collection)` / `readme(collection)` return one
+collection's BUILD_REPORT dict and README text.
 
 An unknown id raises `NotMirroredError` listing the valid ones:
 
@@ -154,9 +155,18 @@ two lowest pyramid levels of one slide, under `sample/<Modality>_<SeriesInstance
 0       CT  series     36  18957986                         36  TCGA-DD-A3A6
 1       MR  series    111   6561042                        111  TCGA-G3-A3CJ
 2       PT  series    215  12890310                        215  TCGA-DD-A4NG
+>>> nci.idc.samples('nsclc_radiomics')[['modality','files','license_short_name']]
+   modality  files license_short_name
+0        CT    144       CC BY-NC 3.0
+1  RTSTRUCT      1       CC BY-NC 3.0
+2       SEG      1       CC BY-NC 3.0
 >>> nci.idc.sample_files('tcga_lihc', 'CT')[:2]
 ['sample/CT_1.3.6.1.4.1.14519.5.2.1.3344.4008.1590978269182606855431778873.8/0ddfe116-0d02-4fc3-bc34-26744e742684.dcm', 'sample/CT_1.3.6.1.4.1.14519.5.2.1.3344.4008.1590978269182606855431778873.8/1630ca3b-f591-4ae2-a24e-749e1d51673d.dcm']
 ```
+
+`license_short_name` is the sample series' own license, the same value `series.parquet` has
+for that series. nsclc_radiomics mixes CC BY 4.0 and CC BY-NC 3.0 series, and all three of
+its samples are CC BY-NC, so they may not be used commercially.
 
 `read_sample()` needs pydicom (`pip install "scigantic-nci[dicom]"`). Radiology samples
 come back as a `Volume`: float32 array `(n_instances, rows, cols)`, instances sorted by
@@ -214,22 +224,29 @@ mIHC [(103, 143, 1), (103, 143, 1), (103, 143, 1)]
 (103, 143) uint8
 ```
 
-Digital breast tomosynthesis stores a whole reconstruction in one multi-frame instance
-(21 frames of 2457 x 1996 here); `read_sample` takes the middle frame, and JPEG 2000 frames
-also need a decoder plugin:
+Ultrasound cine loops (and digital breast tomosynthesis, whose series are pulled rather
+than mirrored) store many frames in one multi-frame instance; `read_sample` takes the
+middle frame. The remind US sample is one instance of 39 frames of 599 x 725:
 
 ```python
->>> nci.idc.samples('breast_cancer_screening_dbt')[['modality','files','bytes','series_aws_url']]
-  modality  files    bytes                                                series_aws_url
-0       MG      1  2322508  s3://idc-open-data-cr/8217b99a-d12f-4de7-914d-1f762dc38006/*
->>> nci.idc.read_sample('breast_cancer_screening_dbt')
-NciError: cannot decode pixel data (transfer syntax 1.2.840.10008.1.2.4.90): Unable to decompress 'JPEG 2000 Image Compression (Lossless Only)' pixel data because all plugins are missing dependencies:
-	gdcm - requires gdcm>=3.0.10
-	pylibjpe ...
+>>> nci.idc.samples('remind')[['modality','files','bytes','license_short_name']]
+  modality  files     bytes license_short_name
+0       MR     59   7863784          CC BY 4.0
+1       US      1  16948532          CC BY 4.0
+2      SEG      1      4188          CC BY 4.0
+>>> v = nci.idc.read_sample('remind', 'US'); v.shape
+(1, 599, 725)
 ```
 
-One collection, `b_mode_and_ceus_liver` (120 US series), has no sample; `samples()` is
-empty and `read_sample()` raises `ValueError`.
+Compressed series need a decoder plugin: without one, `read_sample()` and any pydicom read of
+JPEG 2000 or JPEG-LS pixel data raise `NciError` naming the plugin to install.
+
+Eight collections have no sample; `samples()` is empty and `read_sample()` raises
+`ValueError`. `b_mode_and_ceus_liver` (120 US series) has no series small enough to copy, and
+seven are entirely CC BY-NC, which the mirror never redistributes: `breast_cancer_screening_dbt`,
+`midrc_ricord_1a`, `midrc_ricord_1b`, `midrc_ricord_1c`, `nsclc_radiomics_genomics`,
+`nsclc_radiomics_interobserver1` and `phantom_fda`. Their index tables are complete, and
+`pull_series` fetches any series from the IDC bucket under its license.
 
 ## Pulling a full series from the raw IDC bucket
 
@@ -274,7 +291,7 @@ A column subset of `acrin_6698` series, filtered to SEG:
 | `slides(c)` | sm_series joined to series, lists flattened, `stain` column |
 | `analysis_results(c)` | analysis_results.parquet or empty frame |
 | `clinical_tables(c)`, `clinical(c, table)`, `clinical_dictionary(c)` | clinical tables |
-| `samples(c)`, `sample_files(c, modality)` | sample series metadata, .dcm paths |
+| `samples(c)`, `sample_files(c, modality)` | sample series metadata with `license_short_name`, .dcm paths |
 | `read_sample(c, modality)` | `Volume` or `SlideLevels` (pydicom) |
 | `assemble_level(path)` | one WSI level as an array |
 | `pull_series(row_or_uuid, dest, bucket)` | local .dcm paths from the raw bucket |
