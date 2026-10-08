@@ -16,8 +16,10 @@ five genes or two probes never materialises a whole matrix in pandas.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import os
+import time
 from functools import lru_cache
 from typing import Any, Iterable, Sequence
 
@@ -936,7 +938,14 @@ def fetch_raw(
         if not _s3_unreadable(exc) or not url:
             raise
         source = "https"
-        data, digest, path = _pull(_stream_https(str(url)))
+        for attempt in range(3):
+            try:
+                data, digest, path = _pull(_stream_https(str(url)))
+                break
+            except (OSError, http.client.HTTPException):
+                if attempt == 2:
+                    raise
+                time.sleep(2**attempt)
     expected = str(row["md5sum"]).lower()
     if expected and digest != expected:
         if path is not None and os.path.exists(path):
