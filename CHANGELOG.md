@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 (2026-10-09)
+
+- idc-index bridge. New optional extra, `pip install "scigantic-nci[idc]"`, and new `scigantic_nci.idc` functions on top of [idc-index](https://github.com/ImagingDataCommons/idc-index): `client()` (the shared `IDCClient`), `query(sql)` (SQL over every collection), `series(c, ..., live=True)` (the same 31 columns from the live index, for a newer IDC data version or a collection the mirror lacks), `freshness()` / `mirror_version()` / `live_version()` (the mirror is IDC v24; idc-index 0.13.0 is v25 with 1,044,191 series and 3 collections the mirror lacks), `download(selection, dest, exclude_noncommercial=False, dry_run=False)` (idc-index's parallel s5cmd downloader; `exclude_noncommercial` drops CC BY-NC series first) and `citations(c, format)`. Without the extra, every existing function behaves as before and the new ones raise `NciError` with the install command; the base install is unchanged.
+- `series()` gained `live=False` after `root`, so existing positional calls are unaffected.
+- README and `docs/idc.md` state the relationship to idc-index: the mirror is built from it, and which job each is for.
+- Tests: `tests/test_idc_live.py` runs the bridge against a stand-in client, no network.
+
 ## 0.1.2 (2026-09-15)
 
 - Faster catalog. `gdc.projects()` and `idc.collections()` now read their rows from one index file at the bucket root, `s3://scigantic-gdc-open/PROJECTS.parquet` and `s3://scigantic-idc-open/COLLECTIONS.parquet`, which hold exactly those frames, instead of 57 `BUILD_REPORT.json` plus 57 `clinical/cases.parquet` files (GDC) or 176 reports (IDC). The ids still come from listing the bucket, so they are always current; an id the index does not cover (a project added after the index was written, or one read from `$SCIGANTIC_NCI_ROOT` or the notebook mount) is built from its own files, and an absent or unreadable index, or one missing a column, means every row is built that way. A local copy at `$SCIGANTIC_NCI_ROOT/<bucket>/PROJECTS.parquet` or `$SCIGANTIC_NCI_ROOT/PROJECTS.parquet` (likewise `COLLECTIONS.parquet`) is used in place of the bucket's. The index is a file, not a prefix, so 0.1.1 clients, which take the top-level directories of the bucket as ids, do not see it. Results are still cached per process.

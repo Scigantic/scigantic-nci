@@ -107,6 +107,13 @@ Every per-project or per-collection function takes the id first and `root: str |
 | `assemble_level(path)` | one WSI level as an array |
 | `pull_series(row_or_uuid, dest, bucket)` | local .dcm paths from the raw bucket |
 | `series_size(row_or_uuid)`, `viewer_url(row)` | MB, IDC viewer link |
+| `series(c, ..., live=True)` | the same 31 columns from the live idc-index (newer data version, unmirrored collections) |
+| `freshness()`, `mirror_version()`, `live_version()` | mirror vs live idc-index: versions, series counts, collections the mirror lacks |
+| `query(sql)`, `client()` | SQL over every IDC collection; the shared `idc_index.IDCClient` |
+| `download(selection, dest, exclude_noncommercial)` | whole series through idc-index's parallel s5cmd downloader |
+| `citations(c, format)` | BibTeX, APA, JSON or Turtle citations for a collection's source datasets |
+
+The last five rows and `live=True` need the optional extra, `pip install "scigantic-nci[idc]"`. See [IDC and idc-index](docs/idc.md#idc-and-idc-index).
 
 `NciError` is the base exception; `NotMirroredError` (a subclass) means the project, collection or table is not in the mirror and names what is.
 
