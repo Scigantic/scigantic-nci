@@ -299,3 +299,36 @@ A column subset of `acrin_6698` series, filtered to SEG:
 
 Every per-collection function takes the collection id first and `root: str | None = None`
 last (a local directory holding that collection's files).
+
+## IDC and idc-index
+
+The mirror is built from [idc-index](https://github.com/ImagingDataCommons/idc-index) (the
+builder pins the version in each `BUILD_REPORT.json`), so `series.parquet` has exactly the
+columns of idc-index's `index` table. The two cover different jobs:
+
+| need | use |
+|---|---|
+| explore one collection from a notebook without installing anything beyond pandas, pyarrow and boto3 | the mirror: `series()`, `studies()`, `patients()`, `clinical()` |
+| look at pixels without downloading a series; license-screened sample DICOM | the mirror: `read_sample()`, `samples()` |
+| the newest IDC data version, or a collection the mirror does not have yet | `series(c, live=True)` |
+| SQL across every collection | `query(sql)` |
+| download many or large series, resumable, in parallel | `download(selection, dest)` |
+| citations for the datasets you used | `citations(c)` |
+
+The live functions need `pip install "scigantic-nci[idc]"`; the first call downloads idc-index's
+index. `freshness()` shows where the mirror lags:
+
+```python
+>>> nci.idc.freshness()
+{'mirror_version': 'v24', 'live_version': 'v25', 'stale': True, 'mirror_series': 1032911,
+ 'live_series': 1044191, 'collections_not_mirrored': ['fdg_pet_ct_lesions', 'mri_dir', 'qin_sarcoma'],
+ 'collections_dropped_upstream': []}
+>>> s = nci.idc.series('tcga_lihc', modality='CT', live=True)     # same 31 columns as the mirror
+>>> nci.idc.query("select Modality, count(*) n from index where collection_id = 'qin_sarcoma' group by 1")
+>>> small = s[s.series_size_MB < 50].head(5)
+>>> nci.idc.download(small, '/data/lihc', exclude_noncommercial=True)   # drops CC BY-NC series first
+```
+
+`exclude_noncommercial=True` filters on `license_short_name`, the authoritative per-series license.
+Without it, check the column yourself before commercial use. `client()` returns the shared
+`idc_index.IDCClient` for anything not wrapped here (clinical tables, prior versions, viewer links).

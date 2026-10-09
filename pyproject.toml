@@ -36,7 +36,9 @@ dependencies = [
 # DICOM reading for the IDC sample series and on-demand pulls; everything else works without it.
 # pydicom decodes JPEG baseline (most IDC slides) and JPEG 2000 (tomosynthesis) only through a plugin.
 dicom = ["pydicom>=2.4,<4", "pylibjpeg>=2,<3", "pylibjpeg-libjpeg>=2,<3", "pylibjpeg-openjpeg>=2,<3"]
-dev = ["pytest>=7", "mypy>=1.10", "pandas-stubs", "pydicom>=2.4,<4", "pylibjpeg>=2,<3", "pylibjpeg-libjpeg>=2,<3", "pylibjpeg-openjpeg>=2,<3"]
+# Live IDC index: SQL over every collection, newer data versions, bulk download, citations.
+idc = ["idc-index>=0.12,<1"]
+dev = ["pytest>=7", "mypy>=1.10", "idc-index>=0.12,<1", "pandas-stubs", "pydicom>=2.4,<4", "pylibjpeg>=2,<3", "pylibjpeg-libjpeg>=2,<3", "pylibjpeg-openjpeg>=2,<3"]
 
 [project.urls]
 Homepage = "https://scigantic.com"

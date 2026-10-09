@@ -221,14 +221,20 @@ def series(
     max_size_mb: float | None = None,
     columns: list[str] | None = None,
     root: str | None = None,
+    live: bool = False,
 ) -> pd.DataFrame:
     """One row per DICOM series (series.parquet), optionally filtered.
+
+    ``live=True`` reads the same 31 columns from the live idc-index instead of the mirror (newer
+    data version, collections the mirror lacks); it needs ``scigantic-nci[idc]`` and ignores ``root``.
 
     ``modality`` must be one of the collection's modalities (ValueError lists them);
     ``patient`` is one PatientID or a list; ``max_size_mb`` keeps series at or below that
     size (series_size_MB). ``columns`` reads a subset of the 31 columns. Filters are pushed
     down to pyarrow so a filtered read of a 22,032-row collection does not build the full frame.
     """
+    if live:
+        return _live_series(collection, modality, patient, max_size_mb, columns)
     st = _store(collection, root)
     filters: list[tuple[str, str, Any]] = []
     if modality is not None:
@@ -744,20 +750,177 @@ def viewer_url(row: Any) -> str:
     return f"{VIEWER_BASE}/{study}?seriesInstanceUID={ser}"
 
 
+# ---------------------------------------------------------------------------
+# idc-index bridge (optional: pip install "scigantic-nci[idc]")
+#
+# The mirror is a snapshot of idc-index at one IDC data version. These functions
+# reach the live index for what a snapshot cannot do: newer data versions, SQL
+# across every collection, bulk download and citations.
+
+
+_INSTALL_HINT = 'idc-index is not installed; run: pip install "scigantic-nci[idc]"'
+
+
+@lru_cache(maxsize=1)
+def client() -> Any:
+    """The shared ``idc_index.IDCClient`` (downloads the index on first use, ~a minute cold).
+
+    Needs the optional extra: ``pip install "scigantic-nci[idc]"``. Use it directly for anything
+    this module does not wrap (``client().sql_query(...)``, ``get_clinical_table``, prior versions).
+    """
+    try:
+        mod = importlib.import_module("idc_index")
+    except ImportError:
+        raise NciError(_INSTALL_HINT) from None
+    return mod.IDCClient()
+
+
+def mirror_version() -> str:
+    """The IDC data version the mirror was built from (``'v24'``)."""
+    versions = collections()["idc_data_version"].dropna()
+    return str(versions.mode().iloc[0]) if len(versions) else "unknown"
+
+
+def live_version() -> str:
+    """The IDC data version of the installed idc-index (``'v25'``)."""
+    return str(client().get_idc_version())
+
+
+def freshness() -> dict[str, Any]:
+    """Compare the mirror with the live idc-index: versions, series counts, collections the mirror lacks.
+
+    ``stale`` is True when the data versions differ. ``series(c, live=True)`` reads the newer rows.
+    """
+    mirrored = collections()
+    idx = client().index
+    live_ids = set(idx["collection_id"].unique())
+    mirror_ids = set(mirrored["collection_id"])
+    return {
+        "mirror_version": mirror_version(),
+        "live_version": live_version(),
+        "stale": mirror_version() != live_version(),
+        "mirror_series": int(mirrored["n_series"].sum()),
+        "live_series": int(len(idx)),
+        "collections_not_mirrored": sorted(live_ids - mirror_ids),
+        "collections_dropped_upstream": sorted(mirror_ids - live_ids),
+    }
+
+
+def query(sql: str) -> pd.DataFrame:
+    """Run SQL against the live idc-index (DuckDB; the series table is named ``index``).
+
+    ``query("select Modality, count(*) n from index where collection_id = 'nlst' group by 1")``.
+    Every collection is queryable, mirrored or not.
+    """
+    return pd.DataFrame(client().sql_query(sql))
+
+
+def _is_noncommercial(license_short_name: Any) -> bool:
+    return "-NC" in str(license_short_name)
+
+
+def _live_series(
+    collection: str,
+    modality: str | None,
+    patient: str | list[str] | None,
+    max_size_mb: float | None,
+    columns: list[str] | None,
+) -> pd.DataFrame:
+    idx = client().index
+    df = idx[idx["collection_id"] == collection]
+    if df.empty:
+        raise NciError(f"{collection!r} is not a collection in IDC data {live_version()}")
+    if modality is not None:
+        valid = sorted(df["Modality"].unique())
+        if modality not in valid:
+            raise ValueError(f"{collection} has no {modality!r} series; modalities: {', '.join(valid)}")
+        df = df[df["Modality"] == modality]
+    if patient is not None:
+        pats = [patient] if isinstance(patient, str) else list(patient)
+        df = df[df["PatientID"].isin(pats)]
+    if max_size_mb is not None:
+        df = df[df["series_size_MB"] <= float(max_size_mb)]
+    if columns is not None:
+        df = df[columns]
+    return pd.DataFrame(df.reset_index(drop=True))
+
+
+def _series_uuids(selection: Any) -> list[str]:
+    if isinstance(selection, str):
+        return [selection]
+    if isinstance(selection, pd.DataFrame):
+        return [str(u) for u in selection["crdc_series_uuid"]]
+    if isinstance(selection, pd.Series):
+        return [str(selection["crdc_series_uuid"])]
+    return [u if isinstance(u, str) else str(u["crdc_series_uuid"]) for u in selection]
+
+
+def download(
+    selection: Any,
+    dest: str,
+    exclude_noncommercial: bool = False,
+    dry_run: bool = False,
+) -> list[str]:
+    """Download whole series with idc-index's s5cmd downloader (parallel, resumable, any size).
+
+    ``selection`` is a series frame or row from ``series()`` / ``query()``, a crdc_series_uuid
+    string, or a list of either. ``exclude_noncommercial=True`` drops CC BY-NC series first (for
+    commercial use). Returns the uuids downloaded (or that would be, with ``dry_run=True``). For
+    one small series with no extra install, ``pull_series`` is enough.
+    """
+    uuids = _series_uuids(selection)
+    if not uuids:
+        raise NciError("nothing to download: the selection is empty")
+    cl = client()
+    if exclude_noncommercial:
+        idx = cl.index
+        lic = idx[idx["crdc_series_uuid"].isin(uuids)].set_index("crdc_series_uuid")["license_short_name"]
+        uuids = [u for u in uuids if u in lic.index and not _is_noncommercial(lic[u])]
+        if not uuids:
+            raise NciError("every selected series is CC BY-NC; nothing left to download for commercial use")
+    os.makedirs(dest, exist_ok=True)
+    cl.download_from_selection(downloadDir=dest, crdc_series_uuid=uuids, dry_run=dry_run, quiet=True)
+    return uuids
+
+
+def citations(collection: str, format: str = "bibtex") -> list[str]:
+    """Citations for a collection's source datasets (the DOIs behind its series), from idc-index.
+
+    ``format`` is ``'bibtex'`` (default), ``'apa'``, ``'json'`` or ``'turtle'``.
+    """
+    cl = client()
+    fmts = {
+        "bibtex": cl.CITATION_FORMAT_BIBTEX,
+        "apa": cl.CITATION_FORMAT_APA,
+        "json": cl.CITATION_FORMAT_JSON,
+        "turtle": cl.CITATION_FORMAT_TURTLE,
+    }
+    if format not in fmts:
+        raise ValueError(f"format must be one of {', '.join(fmts)}")
+    return list(cl.citations_from_selection(collection_id=collection, citation_format=fmts[format]))
+
+
 __all__ = [
     "SlideLevel",
     "SlideLevels",
     "Volume",
     "analysis_results",
     "assemble_level",
+    "citations",
+    "client",
     "clinical",
     "clinical_dictionary",
     "clinical_tables",
     "collection_ids",
     "collections",
+    "download",
+    "freshness",
+    "live_version",
+    "mirror_version",
     "patients",
     "pull_series",
     "read_sample",
+    "query",
     "readme",
     "report",
     "sample_files",
