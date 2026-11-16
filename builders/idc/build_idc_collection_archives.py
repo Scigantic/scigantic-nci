@@ -230,7 +230,7 @@ def render_readme(cid: str, cmeta: pd.Series, series: pd.DataFrame, report: dict
               "    s3.download_file(row.aws_bucket, o['Key'], '/tmp/' + o['Key'].split('/')[-1])", "```", "",
               "For bulk pulls use `s5cmd` or `pip install idc-index` (`IDCClient().download_from_selection(...)`).", "",
               "## Attribution", "",
-              "Cite the collection DOI(s) above and the IDC (Fedorov et al., Radiographics 2021, doi:10.1148/rg.2021210020; Fedorov et al., Nature Methods 2023, doi:10.1038/s41592-023-01893-2). Respect the per-series license in `series.parquet` (some collections mix CC BY and CC BY-NC)."]
+              "Cite the collection DOI(s) above and the IDC (Fedorov et al., Cancer Research 2021, doi:10.1158/0008-5472.CAN-21-0950; Fedorov et al., RadioGraphics 2023, doi:10.1148/rg.230180). Respect the per-series license in `series.parquet` (some collections mix CC BY and CC BY-NC)."]
     if any(k.startswith("National Library of Medicine") for k in lic.index):
         lines.append(f"Series under the NLM terms carry the attribution \"{NLM_COURTESY}\".")
     lines.append("")
