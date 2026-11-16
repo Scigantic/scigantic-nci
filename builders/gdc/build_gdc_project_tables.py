@@ -594,7 +594,7 @@ def render_readme(project: str, man: pd.DataFrame, report: dict, release: str) -
     for dt, r in by_type.iterrows():
         lines.append(f"| {dt} | {int(r['files'])} | {r['GB']} |")
     lines += ["", "## Attribution and terms", "",
-              "GDC open-access data carry no access restrictions. Cite the program that generated the data (TCGA, TARGET, CPTAC, ...) and the GDC (Grossman et al., NEJM 2016, https://doi.org/10.1056/NEJMp1607591). TCGA and TARGET publication guidelines: https://www.cancer.gov/ccg/research/genome-sequencing/tcga/using-tcga-data/citing.",
+              "GDC open-access data carry no access restrictions. Cite the program that generated the data (TCGA, TARGET, CPTAC, ...) and the GDC (Grossman et al., NEJM 2016, https://doi.org/10.1056/NEJMp1607591). Publication guidelines: TCGA https://www.cancer.gov/about-nci/organization/dcb/research-programs/past-programs/tcga#citing-tcga-in-publications-and-presentations and TARGET https://www.cancer.gov/about-nci/organization/dcb/research-programs/past-programs/target#citing-target-in-publications-and-presentations.",
               "These tables are a derived re-arrangement of GDC files; values are unchanged from the source files. The build report (`BUILD_REPORT.json`) records counts, bytes, md5 checks, duplicates and any re-alignment.",
               ""]
     return "\n".join(lines)

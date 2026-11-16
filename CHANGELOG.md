@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 (2026-11-16)
+
+- Citations corrected. The README and the per-collection README template cited the two IDC papers with the wrong journals and DOIs. The 2021 paper, *NCI Imaging Data Commons*, is in Cancer Research ([doi:10.1158/0008-5472.CAN-21-0950](https://doi.org/10.1158/0008-5472.CAN-21-0950)); the 2023 paper is in RadioGraphics ([doi:10.1148/rg.230180](https://doi.org/10.1148/rg.230180)). The `README.md` of each collection in `s3://scigantic-idc-open` has been corrected in place.
+- The TCGA and TARGET publication guideline links point at the current NCI pages, in the README, the GDC README template and the `README.md` of each project in `s3://scigantic-gdc-open`.
+- No code changes.
+
 ## 0.1.3 (2026-10-09)
 
 - idc-index bridge. New optional extra, `pip install "scigantic-nci[idc]"`, and new `scigantic_nci.idc` functions on top of [idc-index](https://github.com/ImagingDataCommons/idc-index): `client()` (the shared `IDCClient`), `query(sql)` (SQL over every collection), `series(c, ..., live=True)` (the same 31 columns from the live index, for a newer IDC data version or a collection the mirror lacks), `freshness()` / `mirror_version()` / `live_version()` (the mirror is IDC v24; idc-index 0.13.0 is v25 with 1,044,191 series and 3 collections the mirror lacks), `download(selection, dest, exclude_noncommercial=False, dry_run=False)` (idc-index's parallel s5cmd downloader; `exclude_noncommercial` drops CC BY-NC series first) and `citations(c, format)`. Without the extra, every existing function behaves as before and the new ones raise `NciError` with the install command; the base install is unchanged.
