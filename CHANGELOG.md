@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5 (2026-11-17)
+
+- BREAST-DIAGNOSIS: the collection's 429 image series (MR, MG, CT, PT) are no longer in the IDC buckets, and the TCIA collection page offers only the clinical spreadsheet; the 94 SR series are still readable. The three sample series the mirror held were removed, so `idc.samples("breast_diagnosis")` is empty and `idc.read_sample` has nothing to read. `idc.report("breast_diagnosis")["withdrawn"]` records what was checked and when. `series.parquet` is unchanged, as a record of the collection at IDC v24; `idc.pull_series` on one of its image rows raises `NciError`.
+- Clinical tables under CC BY-NC are not mirrored. For `midrc_ricord_1a`, `midrc_ricord_1b`, `midrc_ricord_1c`, `nsclc_radiomics_genomics` and `nsclc_radiomics_interobserver1` the build report listed a clinical table whose file is not in the mirror, so `idc.clinical()` failed with a missing-file error. The reports now list only what is mirrored (`clinical_tables_not_mirrored` names the rest), `idc.clinical_tables()` returns `[]` for the five, and `idc.clinical()` raises a `ValueError` that says how to read the table from IDC with idc-index. `idc.collections()["clinical_tables"]` is 0 for them: 54 collections have a mirrored clinical table, not 59.
+- `idc.sample_files(c)` returns `[]` for a collection without samples; it raised `FileNotFoundError`.
+- Tests: `tests/test_idc_no_mirror.py` runs without the mirror fixture; the fixture manifest carries the current object sizes.
+
 ## 0.1.4 (2026-11-16)
 
 - Citations corrected. The README and the per-collection README template cited the two IDC papers with the wrong journals and DOIs. The 2021 paper, *NCI Imaging Data Commons*, is in Cancer Research ([doi:10.1158/0008-5472.CAN-21-0950](https://doi.org/10.1158/0008-5472.CAN-21-0950)); the 2023 paper is in RadioGraphics ([doi:10.1148/rg.230180](https://doi.org/10.1148/rg.230180)). The `README.md` of each collection in `s3://scigantic-idc-open` has been corrected in place.

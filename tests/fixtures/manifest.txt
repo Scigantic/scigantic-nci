@@ -50,7 +50,7 @@ scigantic-gdc-open TCGA-ACC/clinical/cases.parquet 25375
 scigantic-gdc-open TCGA-ACC/clinical/diagnoses.parquet 36197
 scigantic-gdc-open TCGA-BLCA/BUILD_REPORT.json 3618
 scigantic-gdc-open TCGA-BLCA/MANIFEST.parquet 1474026
-scigantic-gdc-open TCGA-BLCA/README.md 5348
+scigantic-gdc-open TCGA-BLCA/README.md 5536
 scigantic-gdc-open TCGA-BLCA/clinical/aliquots.parquet 145554
 scigantic-gdc-open TCGA-BLCA/clinical/cases.parquet 56581
 scigantic-gdc-open TCGA-BLCA/clinical/diagnoses.parquet 78641
@@ -173,7 +173,7 @@ scigantic-idc-open anti_pd_1_lung/BUILD_REPORT.json 3462
 scigantic-idc-open b_mode_and_ceus_liver/BUILD_REPORT.json 1255
 scigantic-idc-open bonemarrowwsi_pediatricleukemia/BUILD_REPORT.json 2036
 scigantic-idc-open breast_cancer_screening_dbt/BUILD_REPORT.json 1058
-scigantic-idc-open breast_diagnosis/BUILD_REPORT.json 3284
+scigantic-idc-open breast_diagnosis/BUILD_REPORT.json 2605
 scigantic-idc-open breast_mri_nact_pilot/BUILD_REPORT.json 2640
 scigantic-idc-open c4kc_kits/BUILD_REPORT.json 2434
 scigantic-idc-open catch/BUILD_REPORT.json 1672
@@ -248,9 +248,9 @@ scigantic-idc-open lung_pet_ct_dx/BUILD_REPORT.json 3604
 scigantic-idc-open lung_phantom/BUILD_REPORT.json 1710
 scigantic-idc-open lungct_diagnosis/BUILD_REPORT.json 1638
 scigantic-idc-open mediastinal_lymph_node_seg/BUILD_REPORT.json 2499
-scigantic-idc-open midrc_ricord_1a/BUILD_REPORT.json 1225
-scigantic-idc-open midrc_ricord_1b/BUILD_REPORT.json 1224
-scigantic-idc-open midrc_ricord_1c/BUILD_REPORT.json 1243
+scigantic-idc-open midrc_ricord_1a/BUILD_REPORT.json 1284
+scigantic-idc-open midrc_ricord_1b/BUILD_REPORT.json 1283
+scigantic-idc-open midrc_ricord_1c/BUILD_REPORT.json 1302
 scigantic-idc-open mouse_astrocytoma/BUILD_REPORT.json 1628
 scigantic-idc-open mouse_mammary/BUILD_REPORT.json 1603
 scigantic-idc-open naf_prostate/BUILD_REPORT.json 2294
@@ -259,8 +259,8 @@ scigantic-idc-open nlst/BUILD_REPORT.json 3785
 scigantic-idc-open nsclc_radiogenomics/BUILD_REPORT.json 3588
 scigantic-idc-open nsclc_radiomics/BUILD_REPORT.json 2018
 scigantic-idc-open nsclc_radiomics/series.parquet 372750
-scigantic-idc-open nsclc_radiomics_genomics/BUILD_REPORT.json 1263
-scigantic-idc-open nsclc_radiomics_interobserver1/BUILD_REPORT.json 1314
+scigantic-idc-open nsclc_radiomics_genomics/BUILD_REPORT.json 1314
+scigantic-idc-open nsclc_radiomics_interobserver1/BUILD_REPORT.json 1360
 scigantic-idc-open pancreas_ct/BUILD_REPORT.json 1755
 scigantic-idc-open pancreatic_ct_cbct_seg/BUILD_REPORT.json 2316
 scigantic-idc-open pdmr_292921_168_r/BUILD_REPORT.json 1603

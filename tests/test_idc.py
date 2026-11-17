@@ -46,7 +46,7 @@ def test_collections_catalog() -> None:
     assert int(c["n_series"].sum()) == 1_032_911
     assert int(c["n_patients"].sum()) == 85_442
     assert c.sort_values("n_series").iloc[-1]["collection_id"] == "nlst"
-    assert (c["clinical_tables"] > 0).sum() == 59
+    assert (c["clinical_tables"] > 0).sum() == 54  # five more exist in IDC under CC BY-NC and are not mirrored
     # cached per process: same content, but a copy
     c2 = idc.collections()
     assert c2 is not c and c2.equals(c)

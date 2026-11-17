@@ -304,7 +304,7 @@ def analysis_results(collection: str, root: str | None = None) -> pd.DataFrame:
 
 
 def clinical_tables(collection: str, root: str | None = None) -> list[str]:
-    """Names of the collection's clinical tables (59 collections have at least one)."""
+    """Names of the collection's clinical tables (54 collections have at least one mirrored)."""
     rep = _store(collection, root).read_json("BUILD_REPORT.json")
     return [str(t) for t in rep.get("clinical_tables", [])]
 
@@ -312,8 +312,16 @@ def clinical_tables(collection: str, root: str | None = None) -> list[str]:
 def clinical(collection: str, table: str | None = None, root: str | None = None) -> pd.DataFrame:
     """One clinical table (clinical/<table>.parquet); default is the first listed in BUILD_REPORT."""
     st = _store(collection, root)
-    tables = [str(t) for t in st.read_json("BUILD_REPORT.json").get("clinical_tables", [])]
+    rep = st.read_json("BUILD_REPORT.json")
+    tables = [str(t) for t in rep.get("clinical_tables", [])]
     if not tables:
+        held_back = (rep.get("clinical_tables_not_mirrored") or {}).get("tables", [])
+        if held_back:
+            raise ValueError(
+                f"{collection} has no mirrored clinical tables: {', '.join(held_back)} fall under the collection's "
+                "CC BY-NC license and are not copied. Read one from IDC with idc-index: "
+                f"c = IDCClient(); c.fetch_index('clinical_index'); c.get_clinical_table({held_back[0]!r})"
+            )
         raise ValueError(f"{collection} has no clinical tables")
     if table is None:
         table = tables[0]
@@ -385,6 +393,8 @@ def sample_files(collection: str, modality: str | None = None, root: str | None 
     """
     st = _store(collection, root)
     if modality is None:
+        if not st.read_json("BUILD_REPORT.json").get("samples"):
+            return []  # no sample/ folder: CC BY-NC collections, or images withdrawn at the source
         base = "sample"
     else:
         base = _pick_sample(st.read_json("BUILD_REPORT.json"), modality)["folder"]

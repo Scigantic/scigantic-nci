@@ -6,7 +6,7 @@ The suite reads a local copy of the two mirror buckets. The root is chosen in th
    (and optionally ``gdcbuild_meth/``),
 2. ``tests/fixtures/mirror`` when it has been fetched: the subset every test reads, downloaded
    from the live buckets by ``python tests/fixtures/fetch_mirror.py`` (this is what CI uses),
-3. the full build-time mirrors, when present on the machine that built the buckets. They are
+3. the full build-time mirrors under ``$SCIGANTIC_NCI_BUILD_ROOT``, when set. They are
    not updated when the bucket owners rebuild an object, so they can lag the live buckets.
 
 Set ``SCIGANTIC_NCI_TEST_FIXTURES_ONLY=1`` to force option 2. The methylation tests need a
@@ -21,7 +21,7 @@ import os
 import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_SCRATCH = "/private/tmp/claude-501/-Users-aaronkanzer-projects-scigantic/c826c167-1893-4b78-a1d1-5610f06f1463/scratchpad"
+_SCRATCH = os.environ.get("SCIGANTIC_NCI_BUILD_ROOT", "")  # the full build-time mirrors, when a machine has them
 _FIXTURES = os.path.join(_HERE, "fixtures", "mirror")
 
 
@@ -33,14 +33,14 @@ def _pick_root() -> str:
         return _FIXTURES
     if os.path.exists(os.path.join(_FIXTURES, "idc_mirror", "tcga_lihc", "BUILD_REPORT.json")):
         return _FIXTURES
-    if os.path.isdir(os.path.join(_SCRATCH, "gdc_mirror")):
+    if _SCRATCH and os.path.isdir(os.path.join(_SCRATCH, "gdc_mirror")):
         return _SCRATCH
     return _FIXTURES
 
 
 def _pick_methylation_root(root: str) -> str:
     # A TCGA-CHOL build that includes methylation/ (the public mirror was built without it).
-    for base in (root, _SCRATCH):
+    for base in (root, *([_SCRATCH] if _SCRATCH else [])):
         cand = os.path.join(base, "gdcbuild_meth", "TCGA-CHOL")
         if os.path.isdir(cand) and (base == root or not os.environ.get("SCIGANTIC_NCI_TEST_FIXTURES_ONLY")):
             return cand

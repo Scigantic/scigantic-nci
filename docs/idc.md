@@ -36,7 +36,7 @@ import scigantic_nci as nci
 `BUILD_REPORT.json` files; a collection the index lacks is read from its own report, 16
 threads) once per process and returns a copy of the cached frame. The `modalities` string
 lists a collection's modalities by series count, most first; `clinical_tables` is the
-number of clinical tables (59 collections have at least one). `collection_ids()` gives
+number of clinical tables (54 collections have at least one mirrored). `collection_ids()` gives
 just the sorted ids, and `report(collection)` / `readme(collection)` return one
 collection's BUILD_REPORT dict and README text.
 
