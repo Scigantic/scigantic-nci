@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -48,13 +49,20 @@ def fetch(bucket: str, key: str, size: int, dest: str) -> tuple[str, bool]:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     url = f"https://{bucket}.s3.amazonaws.com/{urllib.request.quote(key)}"
     tmp = path + ".part"
-    try:
-        resp = urllib.request.urlopen(url, timeout=120)
-    except urllib.error.HTTPError as e:
-        if e.code in (403, 404):  # removed from the bucket since the manifest was recorded
-            GONE.append((bucket, key))
-            return path, False
-        raise
+    for attempt in range(4):
+        try:
+            resp = urllib.request.urlopen(url, timeout=120)
+            break
+        except urllib.error.HTTPError as e:
+            if e.code in (403, 404):  # removed from the bucket since the manifest was recorded
+                GONE.append((bucket, key))
+                return path, False
+            raise
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
+            # a reset connection on a busy link is not a missing object; try again before failing
+            if attempt == 3:
+                raise
+            time.sleep(2 * (attempt + 1))
     with resp, open(tmp, "wb") as out:
         while True:
             chunk = resp.read(1 << 20)

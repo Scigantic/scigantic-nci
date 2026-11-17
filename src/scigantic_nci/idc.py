@@ -12,7 +12,7 @@ Typical use::
 
     import scigantic_nci as nci
 
-    nci.idc.collections()                                   # 176 rows, one per collection
+    nci.idc.collections()                                   # 179 rows, one per collection
     s = nci.idc.series("tcga_lihc", modality="CT")          # 777 rows
     vol = nci.idc.read_sample("tcga_lihc", "CT")            # Volume, array (36, 512, 512) float32
     files = nci.idc.pull_series(s.iloc[0], "/tmp/ct")       # anonymous read from idc-open-data
@@ -304,7 +304,7 @@ def analysis_results(collection: str, root: str | None = None) -> pd.DataFrame:
 
 
 def clinical_tables(collection: str, root: str | None = None) -> list[str]:
-    """Names of the collection's clinical tables (54 collections have at least one mirrored)."""
+    """Names of the collection's clinical tables (95 collections have at least one mirrored)."""
     rep = _store(collection, root).read_json("BUILD_REPORT.json")
     return [str(t) for t in rep.get("clinical_tables", [])]
 
@@ -786,7 +786,7 @@ def client() -> Any:
 
 
 def mirror_version() -> str:
-    """The IDC data version the mirror was built from (``'v24'``)."""
+    """The IDC data version the mirror was built from (``'v25'`` since 2026-11-17)."""
     versions = collections()["idc_data_version"].dropna()
     return str(versions.mode().iloc[0]) if len(versions) else "unknown"
 

@@ -6,8 +6,10 @@ tables) plus one or more small sample DICOM series. `scigantic_nci.idc` reads th
 pandas; pixels come from the samples in the mirror or, on demand, from the raw IDC buckets
 anonymously. Nothing here needs an account or BigQuery.
 
-All snippets below were run against the mirror built 2026-09-13 (IDC data v24, 176
-collections). Every number is what the code returned.
+The mirror was built on 2026-09-13 at IDC data v24 and refreshed on 2026-11-17 to v25 (179
+collections). The catalog snippets in "What is mirrored" and the `freshness()` output were re-run
+against v25; the per-collection snippets further down were run against v24, and a collection
+that changed in v25 can return different counts.
 
 ```python
 import scigantic_nci as nci
@@ -17,26 +19,26 @@ import scigantic_nci as nci
 
 ```python
 >>> c = nci.idc.collections(); len(c)
-176
+179
 >>> c.sort_values('n_series', ascending=False).head(8)[['collection_id','n_patients','n_series','total_GB','modalities','clinical_tables']]
                    collection_id  n_patients  n_series  total_GB                         modalities  clinical_tables
-90                          nlst       26410    590572  25737.06                    SR, CT, SEG, SM                5
-74                         ispy2         719     32411   1705.31                            MR, SEG                1
+92                          nlst       26410    592600  25749.68                    SR, CT, SEG, SM                5
+75                         ispy2         719     32411   1705.31                            MR, SEG                1
 62                        eay131        2813     30293    778.58  RTSTRUCT, CT, SEG, MR, PT, NM, XA                0
-64                          gtex         971     25503   8354.19                                 SM                0
+65                          gtex         971     25503   8354.19                                 SM                0
 10   breast_cancer_screening_dbt        5060     22032   1599.43                                 MG                0
-114                    prostatex         346     19177     16.17                        MR, SEG, SR                6
-1                     acrin_6698       385     18747    822.22                            MR, SEG                1
+116                    prostatex         346     19177     16.17                        MR, SEG, SR                6
+1                     acrin_6698         385     18747    822.22                            MR, SEG                1
 38               covid_19_ny_sbu        1384     17950    499.49     CR, CT, DX, MR, NM, PT, OT, SR                1
 >>> c[c.modalities.str.contains('SM')].shape[0], c.total_GB.sum().round(1)
-73 96940.4
+73 97602.4
 ```
 
-`collections()` reads the bucket's `COLLECTIONS.parquet` index (written from the 176
+`collections()` reads the bucket's `COLLECTIONS.parquet` index (written from the 179
 `BUILD_REPORT.json` files; a collection the index lacks is read from its own report, 16
 threads) once per process and returns a copy of the cached frame. The `modalities` string
 lists a collection's modalities by series count, most first; `clinical_tables` is the
-number of clinical tables (54 collections have at least one mirrored). `collection_ids()` gives
+number of clinical tables (95 collections have at least one mirrored). `collection_ids()` gives
 just the sorted ids, and `report(collection)` / `readme(collection)` return one
 collection's BUILD_REPORT dict and README text.
 
@@ -44,7 +46,7 @@ An unknown id raises `NotMirroredError` listing the valid ones:
 
 ```python
 >>> nci.idc.series('nope')
-NotMirroredError: 'nope' is not a mirrored IDC collection (s3://scigantic-idc-open/nope/ is not in the mirror (no BUILD_REPORT.json)). Valid ids (176): 4d_lung, acrin_6698, acrin_contralateral_breast_mr, acrin_flt_brea ...
+NotMirroredError: 'nope' is not a mirrored IDC collection (s3://scigantic-idc-open/nope/ is not in the mirror (no BUILD_REPORT.json)). Valid ids (179): 4d_lung, acrin_6698, acrin_contralateral_breast_mr, acrin_flt_brea ...
 ```
 
 ## Series, studies, patients
@@ -316,13 +318,12 @@ columns of idc-index's `index` table. The two cover different jobs:
 | citations for the datasets you used | `citations(c)` |
 
 The live functions need `pip install "scigantic-nci[idc]"`; the first call downloads idc-index's
-index. `freshness()` shows where the mirror lags:
+index. `freshness()` shows whether the mirror lags the installed idc-index:
 
 ```python
 >>> nci.idc.freshness()
-{'mirror_version': 'v24', 'live_version': 'v25', 'stale': True, 'mirror_series': 1032911,
- 'live_series': 1044191, 'collections_not_mirrored': ['fdg_pet_ct_lesions', 'mri_dir', 'qin_sarcoma'],
- 'collections_dropped_upstream': []}
+{'mirror_version': 'v25', 'live_version': 'v25', 'stale': False, 'mirror_series': 1044191,
+ 'live_series': 1044191, 'collections_not_mirrored': [], 'collections_dropped_upstream': []}
 >>> s = nci.idc.series('tcga_lihc', modality='CT', live=True)     # same 31 columns as the mirror
 >>> nci.idc.query("select Modality, count(*) n from index where collection_id = 'qin_sarcoma' group by 1")
 >>> small = s[s.series_size_MB < 50].head(5)

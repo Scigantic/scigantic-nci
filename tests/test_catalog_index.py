@@ -108,12 +108,12 @@ def test_collections_reads_local_index(
     monkeypatch.setenv("SCIGANTIC_NCI_ROOT", root)
     out = base / "COLLECTIONS.parquet"
     assert main(["build-index", "idc", "--out", str(out)]) == 0
-    assert capsys.readouterr().out == f"{out}: 176 rows, {out.stat().st_size} bytes\n"
+    assert capsys.readouterr().out == f"{out}: 179 rows, {out.stat().st_size} bytes\n"
     built = _spy(monkeypatch, idc, "_report_row")
     c = idc.collections()
     assert built == []
     pd.testing.assert_frame_equal(c, idc_expected)
-    assert len(idc.collection_ids()) == 176 and "COLLECTIONS.parquet" not in idc.collection_ids()
+    assert len(idc.collection_ids()) == 179 and "COLLECTIONS.parquet" not in idc.collection_ids()
 
 
 def test_build_index_ignores_existing_index(

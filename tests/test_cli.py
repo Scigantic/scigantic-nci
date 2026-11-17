@@ -112,7 +112,7 @@ def test_bad_sample_type_exit_code_2(gdc_root: str, capsys: pytest.CaptureFixtur
 def test_collections_csv(idc_root: str, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["collections"]) == 0
     df = _csv(capsys)
-    assert len(df) == 176
+    assert len(df) == 179
     assert int(df.set_index("collection_id").loc[LIHC, "n_series"]) == 3457
 
 

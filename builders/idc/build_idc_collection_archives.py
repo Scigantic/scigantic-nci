@@ -187,6 +187,30 @@ def download_sample(pick: dict, out_dir: str, idc: Idc) -> dict:
             "license": row.license_short_name, "source_DOI": row.source_DOI, "folder": os.path.relpath(folder, out_dir)}
 
 
+def kept_samples(prev_dir: str | None, series: pd.DataFrame) -> list[dict] | None:
+    """The previous build's samples, when every one of them is still the same series in the index.
+
+    A refresh to a newer IDC version would otherwise re-pick and re-copy every sample, and the
+    starter notebooks name the sample folders. A sample is kept only if its SeriesInstanceUID is
+    still in the collection under the same crdc_series_uuid (a revised series gets a new one) and
+    is still redistributable. Returns None when there is no previous build or any sample fails.
+    """
+    rp = os.path.join(prev_dir, "BUILD_REPORT.json") if prev_dir else ""
+    if not rp or not os.path.exists(rp):
+        return None
+    prev = json.load(open(rp)).get("samples") or []
+    if not prev:
+        return None
+    now = series.set_index("SeriesInstanceUID")
+    for s in prev:
+        if s["SeriesInstanceUID"] not in now.index:
+            return None
+        row = now.loc[s["SeriesInstanceUID"]]
+        if row.series_aws_url != s["series_aws_url"] or str(row.license_short_name).startswith("CC BY-NC"):
+            return None
+    return prev
+
+
 def render_readme(cid: str, cmeta: pd.Series, series: pd.DataFrame, report: dict, clinical_tables: list[str], analysis: pd.DataFrame) -> str:
     by_mod = series.groupby("Modality").agg(series=("SeriesInstanceUID", "count"), patients=("PatientID", "nunique"),
                                             GB=("series_size_MB", lambda s: round(s.sum() / 1024, 2))).sort_values("series", ascending=False)
@@ -196,7 +220,8 @@ def render_readme(cid: str, cmeta: pd.Series, series: pd.DataFrame, report: dict
              f"Built by Scigantic from idc-index {report['idc_index_version']} (IDC {report['idc_data_version']}) on {report['built_at'][:10]}.",
              "", f"**Cancer types:** {cmeta.cancer_types}  ", f"**Tumor locations:** {cmeta.tumor_locations}  ",
              f"**Subjects (IDC):** {cmeta.subjects}  ", f"**Program:** {cmeta.program_id}  ", f"**Supporting data (IDC):** {cmeta.supporting_data}  ",
-             f"**Status:** {cmeta.status}, updated {cmeta.updated}", "", "## Description (IDC)", "", str(cmeta.description or "").strip(), "",
+             f"**Status:** {cmeta.status}, updated {cmeta.updated}", *(["", "## Images withdrawn at the source", "", report["withdrawn"]["note"] + " The sample series this archive used to hold were removed."] if report.get("withdrawn") else []),
+             "", "## Description (IDC)", "", str(cmeta.description or "").strip(), "",
              "## What is in the collection", "", f"{len(series):,} DICOM series, {series.PatientID.nunique():,} patients, {series.StudyInstanceUID.nunique():,} studies, {series.series_size_MB.sum() / 1024:.1f} GB.", "",
              "| modality | series | patients | GB |", "|---|---|---|---|"]
     for mod, r in by_mod.iterrows():
@@ -208,10 +233,17 @@ def render_readme(cid: str, cmeta: pd.Series, series: pd.DataFrame, report: dict
         lines.append(f"| {name}.parquet | {t['rows']:,} | {t['columns']} |")
     if clinical_tables:
         lines += ["", "IDC clinical tables for this collection: " + ", ".join(clinical_tables) + ". `clinical/dictionary.parquet` gives the label and coded values of every column."]
+    held = (report.get("clinical_tables_not_mirrored") or {}).get("tables", [])
+    if held:
+        lines += ["", f"Clinical: {', '.join(held)} {'is an IDC clinical table' if len(held) == 1 else 'are IDC clinical tables'} (TCIA-supplied) under the collection's CC BY-NC license, "
+                  "so not copied into this archive. With idc-index: `c = IDCClient(); c.fetch_index('clinical_index'); "
+                  f"c.get_clinical_table('{held[0]}')`; `c.clinical_index` holds the column labels; join on dicom_patient_id = PatientID."]
     if len(analysis):
         lines += ["", "## Analysis results covering this collection", ""] + [f"- {r.analysis_result_title} ({r.analysis_result_id}): {r.modalities}, {r.license_short_name}, https://doi.org/{r.source_DOI}" for _, r in analysis.iterrows()]
     lines += ["", "## Sample images", ""]
-    if not report["samples"]:
+    if not report["samples"] and report.get("withdrawn"):
+        lines.append('None. See "Images withdrawn at the source" above.')
+    elif not report["samples"]:
         lines.append("No sample series is mirrored: no series of a sampled modality is both small enough and under a license that allows "
                      f"redistribution ({', '.join(lic.index)}). Pull one from the IDC bucket (below) and respect its license"
                      + ("; CC BY-NC series are for non-commercial use only." if any(k.startswith("CC BY-NC") for k in lic.index) else "."))
@@ -237,7 +269,7 @@ def render_readme(cid: str, cmeta: pd.Series, series: pd.DataFrame, report: dict
     return "\n".join(lines)
 
 
-def build_collection(cid: str, idc: Idc, out_root: str, upload: bool) -> dict:
+def build_collection(cid: str, idc: Idc, out_root: str, upload: bool, prev_root: str | None = None) -> dict:
     t0 = time.time()
     out = os.path.join(out_root, cid)
     os.makedirs(out, exist_ok=True)
@@ -249,6 +281,10 @@ def build_collection(cid: str, idc: Idc, out_root: str, upload: bool) -> dict:
               "idc_index_version": idc.pkg["idc-index"], "idc_index_data_version": idc.pkg["idc-index-data"],
               "built_at": datetime.now(timezone.utc).isoformat(), "tables": {}, "samples": [], "sample_license_policy": SAMPLE_LICENSE_POLICY}
     print(f"\n== {cid} ({cmeta.collection_name}): {len(series):,} series, {series.PatientID.nunique():,} patients", flush=True)
+    prev_dir = os.path.join(prev_root, cid) if prev_root else None
+    prev_report = json.load(open(os.path.join(prev_dir, "BUILD_REPORT.json"))) if prev_dir and os.path.exists(os.path.join(prev_dir, "BUILD_REPORT.json")) else {}
+    # A collection whose every series is CC BY-NC: its clinical tables fall under the same license and are not copied.
+    all_nc = bool(series.license_short_name.fillna("").str.startswith("CC BY-NC").all())
 
     report["tables"]["series"] = write_parquet(series, os.path.join(out, "series.parquet"))
     studies = series.groupby("StudyInstanceUID").agg(PatientID=("PatientID", "first"), StudyDate=("StudyDate", "first"), StudyDescription=("StudyDescription", "first"),
@@ -266,7 +302,11 @@ def build_collection(cid: str, idc: Idc, out_root: str, upload: bool) -> dict:
         report["tables"]["analysis_results"] = write_parquet(analysis, os.path.join(out, "analysis_results.parquet"))
     clin = idc.clinical[idc.clinical.collection_id == cid]
     clinical_tables = []
-    if len(clin):
+    if len(clin) and all_nc:
+        report["clinical_tables_not_mirrored"] = {"tables": sorted(clin.short_table_name.unique()), "reason": "CC BY-NC, the collection's license; not redistributed",
+                                                  "how_to_read": "idc-index: c = IDCClient(); c.fetch_index('clinical_index'); c.get_clinical_table('<table>')"}
+        print(f"   clinical tables not copied (CC BY-NC): {', '.join(report['clinical_tables_not_mirrored']['tables'])}", flush=True)
+    elif len(clin):
         for tname in sorted(clin.short_table_name.unique()):
             try:
                 df = idc.c.get_clinical_table(tname)
@@ -278,9 +318,22 @@ def build_collection(cid: str, idc: Idc, out_root: str, upload: bool) -> dict:
         dictionary = clin[["short_table_name", "column", "column_label", "values"]].copy()
         dictionary["values"] = dictionary["values"].astype(str)
         report["tables"]["clinical/dictionary"] = write_parquet(dictionary, os.path.join(out, "clinical", "dictionary.parquet"))
-    for pick in pick_samples(series, idc):
-        report["samples"].append(download_sample(pick, out, idc))
-        print(f"   sample {pick['modality']}: {report['samples'][-1]['files']} files, {report['samples'][-1]['bytes'] / 1e6:.1f} MB, {report['samples'][-1]['license']}", flush=True)
+    kept = kept_samples(prev_dir, series)
+    if prev_report.get("withdrawn"):
+        # images withdrawn at the source: the index can still list them, the objects are gone; carry the record forward
+        report["withdrawn"] = prev_report["withdrawn"]
+        report["samples_removed"] = prev_report.get("samples_removed", [])
+        report["samples_kept_from_previous_build"] = False
+        print("   withdrawn at the source: no samples", flush=True)
+    elif kept is not None:
+        report["samples"] = kept
+        report["samples_kept_from_previous_build"] = True
+        print(f"   kept {len(kept)} sample series from the previous build (same series, same crdc_series_uuid)", flush=True)
+    else:
+        report["samples_kept_from_previous_build"] = False
+        for pick in pick_samples(series, idc):
+            report["samples"].append(download_sample(pick, out, idc))
+            print(f"   sample {pick['modality']}: {report['samples'][-1]['files']} files, {report['samples'][-1]['bytes'] / 1e6:.1f} MB, {report['samples'][-1]['license']}", flush=True)
     samples_df = pd.DataFrame([{**s, "license_short_name": s["license"]} for s in report["samples"]], columns=SAMPLE_COLUMNS)
     report["tables"]["samples"] = write_parquet(samples_df.astype({"files": "int64", "bytes": "int64", "instanceCount_full_series": "int64", "series_size_MB_full": "float64"})
                                                 .astype({c: "string" for c in SAMPLE_COLUMNS if c not in ("files", "bytes", "instanceCount_full_series", "series_size_MB_full")}),
@@ -315,6 +368,7 @@ def main() -> int:
     ap.add_argument("--collections", required=True, help="comma list or 'all'")
     ap.add_argument("--upload", action="store_true")
     ap.add_argument("--skip-built", action="store_true")
+    ap.add_argument("--previous", default="", help="directory with the previous build's <collection>/BUILD_REPORT.json: samples that are still the same series are kept, not re-copied")
     ap.add_argument("--upload-only", action="store_true", help="upload already-built local collection dirs under --out, no rebuild")
     args = ap.parse_args()
     s3 = boto3.client("s3", region_name=MIRROR_REGION, config=Config(retries={"max_attempts": 10, "mode": "adaptive"}, max_pool_connections=32))
@@ -334,7 +388,8 @@ def main() -> int:
 
             def put(p):
                 key = f"{cid}/{os.path.relpath(p, out)}"
-                s3.upload_file(p, MIRROR_BUCKET, key)
+                ctype = {".md": "text/markdown", ".json": "application/json"}.get(os.path.splitext(p)[1])
+                s3.upload_file(p, MIRROR_BUCKET, key, ExtraArgs={"ContentType": ctype} if ctype else None)
                 if s3.head_object(Bucket=MIRROR_BUCKET, Key=key)["ContentLength"] != os.path.getsize(p):
                     raise RuntimeError(f"upload size mismatch for {key}")
                 return os.path.getsize(p)
@@ -355,7 +410,7 @@ def main() -> int:
                 continue
             except s3.exceptions.ClientError:
                 pass
-        build_collection(cid, idc, args.out, args.upload)
+        build_collection(cid, idc, args.out, args.upload, args.previous or None)
     return 0
 
 

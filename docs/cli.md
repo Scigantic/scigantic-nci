@@ -108,7 +108,7 @@ $ echo $?
 $ scigantic-nci build-index gdc --out PROJECTS.parquet
 PROJECTS.parquet: 57 rows, 5772 bytes
 $ scigantic-nci build-index idc --out COLLECTIONS.parquet
-COLLECTIONS.parquet: 176 rows, 15648 bytes
+COLLECTIONS.parquet: 179 rows, 19004 bytes
 ```
 
 ## IDC
@@ -116,8 +116,8 @@ COLLECTIONS.parquet: 176 rows, 15648 bytes
 ```
 $ scigantic-nci collections | head -3
 collection_id,collection_name,n_patients,n_studies,n_series,total_GB,modalities,licenses,clinical_tables,idc_data_version,built_at
-4d_lung,4D-Lung,20,589,6690,178.75,"CT, RTSTRUCT",CC BY 3.0,0,v24,2026-09-13T17:44:13.574883+00:00
-acrin_6698,ACRIN-6698,385,1123,18747,822.22,"MR, SEG",CC BY 4.0,1,v24,2026-09-13T17:44:34.185940+00:00
+4d_lung,4D-Lung,20,589,6690,178.75,"CT, RTSTRUCT",CC BY 3.0,0,v25,2026-11-17T16:01:50.406274+00:00
+acrin_6698,ACRIN-6698,385,1123,18747,822.22,"MR, SEG",CC BY 4.0,1,v25,2026-11-17T16:01:50.519798+00:00
 ```
 
 ```

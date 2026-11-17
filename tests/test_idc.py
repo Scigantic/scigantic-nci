@@ -21,7 +21,7 @@ pytestmark = pytest.mark.usefixtures("idc_root")
 
 def test_collections_catalog() -> None:
     c = idc.collections()
-    assert len(c) == 176
+    assert len(c) == 179
     assert list(c.columns) == [
         "collection_id",
         "collection_name",
@@ -41,12 +41,12 @@ def test_collections_catalog() -> None:
     assert lihc["n_patients"] == 377
     assert lihc["n_studies"] == 614
     assert lihc["modalities"] == "MR, SEG, SM, CT, PT"
-    assert lihc["clinical_tables"] == 2
-    assert lihc["idc_data_version"] == "v24"
-    assert int(c["n_series"].sum()) == 1_032_911
-    assert int(c["n_patients"].sum()) == 85_442
+    assert lihc["clinical_tables"] == 3
+    assert lihc["idc_data_version"] == "v25"
+    assert int(c["n_series"].sum()) == 1_044_191
+    assert int(c["n_patients"].sum()) == 86_451
     assert c.sort_values("n_series").iloc[-1]["collection_id"] == "nlst"
-    assert (c["clinical_tables"] > 0).sum() == 54  # five more exist in IDC under CC BY-NC and are not mirrored
+    assert (c["clinical_tables"] > 0).sum() == 95  # five more exist in IDC under CC BY-NC and are not mirrored
     # cached per process: same content, but a copy
     c2 = idc.collections()
     assert c2 is not c and c2.equals(c)
@@ -54,11 +54,11 @@ def test_collections_catalog() -> None:
 
 def test_collection_ids_and_unknown_collection() -> None:
     ids = idc.collection_ids()
-    assert len(ids) == 176 and ids == sorted(ids)
+    assert len(ids) == 179 and ids == sorted(ids)
     with pytest.raises(NotMirroredError) as ei:
         idc.series("not_a_collection")
     msg = str(ei.value)
-    assert "Valid ids (176)" in msg and "tcga_lihc" in msg and "acrin_6698" in msg
+    assert "Valid ids (179)" in msg and "tcga_lihc" in msg and "acrin_6698" in msg
 
 
 def test_report_and_readme() -> None:
@@ -127,17 +127,19 @@ def test_clinical_lihc() -> None:
     assert idc.clinical_tables("tcga_lihc") == [
         "bamf_aimi_annotations_liver_ct_qa_results",
         "bamf_aimi_annotations_liver_mr_qa_results",
+        "tcga_lihc_clinical",
     ]
     assert idc.clinical("tcga_lihc").shape == (98, 15)
     assert idc.clinical("tcga_lihc", "bamf_aimi_annotations_liver_mr_qa_results").shape == (72, 15)
     d = idc.clinical_dictionary("tcga_lihc")
-    assert d.shape == (30, 4) and list(d.columns) == ["short_table_name", "column", "column_label", "values"]
+    assert idc.clinical("tcga_lihc", "tcga_lihc_clinical").shape == (377, 74)
+    assert d.shape == (104, 4) and list(d.columns) == ["short_table_name", "column", "column_label", "values"]
     with pytest.raises(ValueError, match="tables: "):
         idc.clinical("tcga_lihc", "nope")
     with pytest.raises(ValueError, match="no clinical tables"):
-        idc.clinical("tcga_chol")
+        idc.clinical("4d_lung")
     with pytest.raises(ValueError, match="no clinical tables"):
-        idc.clinical_dictionary("tcga_chol")
+        idc.clinical_dictionary("4d_lung")
 
 
 # ---------------------------------------------------------------------------

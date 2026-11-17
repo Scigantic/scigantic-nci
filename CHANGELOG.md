@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.6 (2026-11-17)
+
+- The IDC mirror is at IDC v25 (it was v24). 179 collections, 1,044,191 series, 97.6 TB: three collections are new (`fdg_pet_ct_lesions`, `mri_dir`, `qin_sarcoma`), 66 changed (revised series; 18 with different series counts), and 48 gained clinical tables, so 95 collections have a mirrored clinical table. `idc.freshness()` reports `stale: False` against idc-index 0.13.5. No function changed; counts returned for a changed collection differ from 0.1.5's.
+- Sample series are the same wherever the series is unchanged in v25 (154 collections). `tcga_hnsc` and `tcga_stad` have a different slide sample, and 11 others hold the revised version of the same series.
+- `ldct_and_projection_data`: the clinical tables are now `..._abdomen_v11`, `..._chest_v11` and `..._head_v11`; the `v9` tables are gone.
+- Builders: `builders/idc/build_idc_collection_archives.py` takes `--previous DIR` (keep a sample that is still the same series), does not copy the clinical tables of a collection whose every series is CC BY-NC, and carries a withdrawn collection's record forward.
+- Tests and docs carry the v25 numbers; the fixture fetch retries a reset connection.
+
 ## 0.1.5 (2026-11-17)
 
 - BREAST-DIAGNOSIS: the collection's 429 image series (MR, MG, CT, PT) are no longer in the IDC buckets, and the TCIA collection page offers only the clinical spreadsheet; the 94 SR series are still readable. The three sample series the mirror held were removed, so `idc.samples("breast_diagnosis")` is empty and `idc.read_sample` has nothing to read. `idc.report("breast_diagnosis")["withdrawn"]` records what was checked and when. `series.parquet` is unchanged, as a record of the collection at IDC v24; `idc.pull_series` on one of its image rows raises `NciError`.
