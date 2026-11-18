@@ -29,3 +29,18 @@ def test_clinical_says_where_a_table_that_is_not_mirrored_can_be_read(tmp_path) 
     assert idc.clinical_tables("nc", root=root) == []
     with pytest.raises(ValueError, match="get_clinical_table\\('nc_clinical'\\)"):
         idc.clinical("nc", root=root)
+
+
+def test_folders_beside_the_mirror_are_not_collections() -> None:
+    from scigantic_nci._store import is_data_prefix
+
+    assert is_data_prefix("tcga_lihc") and is_data_prefix("4d_lung") and is_data_prefix("TCGA-BLCA")
+    for name in ("_ask", "_thumbnails", ".aws-datasync", ""):
+        assert not is_data_prefix(name)
+
+
+@pytest.mark.network
+def test_live_collection_listing_has_only_collections() -> None:
+    ids = idc.collection_ids()
+    assert ids and not [i for i in ids if i.startswith(("_", "."))]
+    assert len(idc.collections()) == len(ids)

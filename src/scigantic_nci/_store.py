@@ -182,12 +182,24 @@ def resolve(bucket: str, key: str, root: str | None = None) -> Store:
     return store
 
 
+def is_data_prefix(name: str) -> bool:
+    """Whether a top-level folder of a mirror bucket is a project or collection.
+
+    Folders whose name starts with ``_`` or ``.`` hold derived data kept beside the mirror
+    (``_ask/``, ``_thumbnails/``), not a project or collection. They appeared in
+    ``scigantic-idc-open`` on 2026-11-17 and every release up to 0.1.6 listed them as
+    collection ids, so ``idc.collections()`` failed on a folder with no build report.
+    """
+    return bool(name) and name[0] not in "_."
+
+
 def list_keys(bucket: str) -> list[str]:
     """Top-level prefixes of a mirror bucket (project ids or collection ids)."""
     import pyarrow.fs as pafs
 
     infos = _s3fs().get_file_info(pafs.FileSelector(bucket, recursive=False))
-    return sorted(os.path.basename(i.path.rstrip("/")) for i in infos if i.type == pafs.FileType.Directory)
+    names = (os.path.basename(i.path.rstrip("/")) for i in infos if i.type == pafs.FileType.Directory)
+    return sorted(n for n in names if is_data_prefix(n))
 
 
 def read_index(bucket: str, columns: Sequence[str], key_column: str, local_dir: str | None = None) -> dict[str, dict[str, Any]]:
