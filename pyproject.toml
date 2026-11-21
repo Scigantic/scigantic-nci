@@ -22,6 +22,8 @@ classifiers = [
   "Typing :: Typed",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
   "Topic :: Scientific/Engineering :: Medical Science Apps.",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
 ]
 
 dependencies = [
@@ -44,6 +46,7 @@ dev = ["pytest>=7", "mypy>=1.10", "idc-index>=0.12,<1", "pandas-stubs", "pydicom
 Homepage = "https://scigantic.com"
 Repository = "https://github.com/Scigantic/scigantic-nci"
 Issues = "https://github.com/Scigantic/scigantic-nci/issues"
+Documentation = "https://github.com/Scigantic/scigantic-nci/blob/main/docs/index.md"
 
 [project.scripts]
 scigantic-nci = "scigantic_nci.cli:main"
