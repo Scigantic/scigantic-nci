@@ -11,7 +11,7 @@
         <img alt="License" src="https://img.shields.io/github/license/Scigantic/scigantic-nci" /></a>
 </p>
 
-Analysis-ready NCI cancer data in one import: per-project [Genomic Data Commons](https://gdc.cancer.gov/) tables (clinical, RNA-Seq, mutations, copy number, miRNA, RPPA, methylation) and per-collection [Imaging Data Commons](https://imaging.datacommons.cancer.gov/) indexes with sample DICOM, read as pandas DataFrames from public S3 or a mounted copy. No account, no download step, no BigQuery.
+Read TCGA and other NCI cancer data as pandas DataFrames in one import. From the [Genomic Data Commons](https://gdc.cancer.gov/) (GDC): per-project clinical, RNA-Seq expression, somatic mutation, copy number, miRNA, RPPA and methylation tables. From the [Imaging Data Commons](https://imaging.datacommons.cancer.gov/) (IDC): per-collection DICOM series indexes with sample DICOM (radiology series and low-resolution slide levels). Everything is read from public S3 or a mounted copy. No account, no download step, no BigQuery.
 
 ```python
 import scigantic_nci as nci
@@ -36,6 +36,10 @@ $ pip install "scigantic-nci[dicom]"     # pydicom and the pylibjpeg decoders, f
 ```
 
 Python 3.10 or newer. Dependencies are pandas, pyarrow, numpy and boto3.
+
+## Try it on hosted data
+
+Each mirrored project and collection has a Scigantic catalog entry that opens in a hosted Jupyter notebook with the tables already mounted, for example [TCGA-BLCA (GDC open-access tables)](https://scigantic.com/archive/3fef5881-1ccc-5c24-9c96-0b65ade92487?utm_source=github&utm_medium=readme&utm_campaign=scigantic-nci) and the [NCI Imaging Data Commons](https://scigantic.com/archive/270d1e86-d234-4234-9cac-dc846bcad87f?utm_source=github&utm_medium=readme&utm_campaign=scigantic-nci). A worked example that joins the two, [cervical cancer slides joined to their clinical and RNA-seq records](https://scigantic.com/sample/pathology-idc-gdc-cervical?utm_source=github&utm_medium=readme&utm_campaign=scigantic-nci), runs in the browser with nothing to download.
 
 ## Why this exists
 

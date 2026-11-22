@@ -44,6 +44,8 @@ dev = ["pytest>=7", "mypy>=1.10", "idc-index>=0.12,<1", "pandas-stubs", "pydicom
 
 [project.urls]
 Homepage = "https://scigantic.com"
+"TCGA in a hosted notebook" = "https://scigantic.com/archive/3fef5881-1ccc-5c24-9c96-0b65ade92487?utm_source=pypi&utm_medium=project-urls&utm_campaign=scigantic-nci"
+"IDC in a hosted notebook" = "https://scigantic.com/archive/270d1e86-d234-4234-9cac-dc846bcad87f?utm_source=pypi&utm_medium=project-urls&utm_campaign=scigantic-nci"
 Repository = "https://github.com/Scigantic/scigantic-nci"
 Issues = "https://github.com/Scigantic/scigantic-nci/issues"
 Documentation = "https://github.com/Scigantic/scigantic-nci/blob/main/docs/index.md"
