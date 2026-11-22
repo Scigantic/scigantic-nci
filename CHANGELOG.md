@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8 (2026-11-22)
+
+- README opens with what the package reads, adds a runnable example near the top and links the matching dataset pages. Project URLs and classifiers updated. No code changes.
+
 ## 0.1.7 (2026-11-18)
 
 - `idc.collections()` and `idc.collection_ids()` work again. Two folders of derived data, `_ask/` and `_thumbnails/`, were added at the root of `s3://scigantic-idc-open` on 2026-11-17, and every release up to 0.1.6 listed each top-level folder as a collection: `collection_ids()` returned 181 ids and `collections()` raised `KeyError: 'collection_id'` on the two that have no build report. Top-level folders whose name starts with `_` or `.` are no longer listed, for both buckets. Functions that take a collection id (`series`, `patients`, `clinical`, `read_sample`, ...) were not affected.
