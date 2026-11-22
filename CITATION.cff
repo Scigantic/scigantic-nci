@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: scigantic-nci
+abstract: "Read NCI cancer data from public S3 or a mounted copy: per-project GDC tables (clinical, RNA-Seq, mutations, copy number, miRNA, RPPA, methylation) and per-collection Imaging Data Commons indexes with sample DICOM."
+authors:
+  - name: Scigantic
+    website: https://scigantic.com
+repository-code: https://github.com/Scigantic/scigantic-nci
+url: https://pypi.org/project/scigantic-nci/
+license: MIT-0
+keywords:
+  - "gdc"
+  - "tcga"
+  - "target"
+  - "cptac"
+  - "idc"
+  - "imaging-data-commons"
+  - "cancer"
+  - "genomics"
+version: "0.1.7"
+date-released: '2026-11-18'
